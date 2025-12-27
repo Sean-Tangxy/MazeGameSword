@@ -57,6 +57,12 @@
     <ClInclude Include="UI.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="include\easyx.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="include\graphics.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Boss.cpp">

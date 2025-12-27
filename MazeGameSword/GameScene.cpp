@@ -51,9 +51,15 @@ class Enemy {
 private:
     Position position;
     IMAGE* sprite;
+    int justAttackTimer; // 重命名，避免与方法同名并暴露私有成员
 
 public:
-    Enemy(Position startPos) : position(startPos), sprite(nullptr) {}
+    Enemy(Position startPos) : position(startPos), sprite(nullptr), justAttackTimer(0) {}
+
+    // 访问器/修改器（公开）
+    int getJustAttackTimer() const { return justAttackTimer; }
+    void decreaseJustAttackTimer() { if (justAttackTimer > 0) --justAttackTimer; }
+    void setJustAttackTimer(int v) { justAttackTimer = v; }
 
     Position getPosition() const { return position; }
 
@@ -124,7 +130,8 @@ GameScene::GameScene(SceneManager* manager)
     currentDialogueStep(0),
     isGameOver(false),
     isGameWon(false),
-    resourcesLoaded(false) {
+    resourcesLoaded(false),
+    npcType(NPCType::FOREST_GUARDIAN) {
 
     // 初始化圣剑碎片
     for (int i = 0; i < 3; i++) {
@@ -146,6 +153,7 @@ GameScene::~GameScene() {
 }
 
 void GameScene::enter() {
+
     // 重置游戏状态
     hasKey = false;
     playerHealth = 6;
@@ -354,7 +362,19 @@ void GameScene::render() {
     for (const auto& item : items) {
         int screenX = item.first.x * TILE_SIZE;
         int screenY = item.first.y * TILE_SIZE;
-
+        
+        if(item.second==ItemType::HEALTH_POTION){
+            putimage(screenX, screenY, &healthPotionImg);
+        }
+        else if(item.second==ItemType::COIN){
+            putimage(screenX, screenY, &coinImg);
+        }
+        else if(item.second==ItemType::KEY){
+            putimage(screenX, screenY, &keyImg);
+        }
+        else if(item.second==ItemType::SWORD_FRAGMENT){
+            putimage(screenX, screenY, &swordFragmentImg);
+		}
         // ... 绘制物品的代码保持不变 ...
     }
 
@@ -660,6 +680,7 @@ void GameScene::checkGameStatus() {
 
 void GameScene::updateEnemies() {
     for (auto enemy : enemies) {
+        if (enemy->getJustAttackTimer() > 0) continue;
         enemy->update(player->getPosition(), *this);
     }
 }
@@ -668,6 +689,10 @@ void GameScene::checkEnemyCollision() {
     Position playerPos = player->getPosition();
 
     for (const auto& enemy : enemies) {
+        if (enemy->getJustAttackTimer() > 0) {
+            enemy->decreaseJustAttackTimer();
+            continue;
+        }
         if (playerPos == enemy->getPosition()) {
             playerHealth--;
 
@@ -695,6 +720,9 @@ void GameScene::checkEnemyCollision() {
 
             // 限制最低生命值
             if (playerHealth < 0) playerHealth = 0;
+
+            // 通过公开方法设置冷却/不可再次攻击计时器
+            enemy->setJustAttackTimer(100);
 
             break;  // 一次只处理一个碰撞
         }
@@ -724,7 +752,7 @@ void GameScene::createDefaultResources() {
 
     // 创建默认墙砖
     SetWorkingImage(&tileWall);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
+    Resize(&tileWall, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(80, 60, 40));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
 
@@ -739,24 +767,24 @@ void GameScene::createDefaultResources() {
 
     // 创建默认药水（简化版本）
     SetWorkingImage(&healthPotionImg);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0, 0));  // 透明背景
+    Resize(&healthPotionImg, TILE_SIZE, TILE_SIZE);
+    setfillcolor(RGB(0, 0, 0));  // 透明背景
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(0, 200, 0));
     solidellipse(4, 4, TILE_SIZE - 4, TILE_SIZE - 4);
 
     // 创建默认金币
     SetWorkingImage(&coinImg);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0, 0));
+    Resize(&coinImg, TILE_SIZE, TILE_SIZE);
+    setfillcolor(RGB(0, 0, 0));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 200, 0));
     solidcircle(TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2 - 4);
 
     // 创建默认钥匙
     SetWorkingImage(&keyImg);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0, 0));
+    Resize(&keyImg, TILE_SIZE, TILE_SIZE);
+    setfillcolor(RGB(0, 0, 0));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 150, 0));
 
@@ -769,8 +797,8 @@ void GameScene::createDefaultResources() {
 
     // 创建默认圣剑碎片
     SetWorkingImage(&swordFragmentImg);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0, 0));
+    Resize(&swordFragmentImg, TILE_SIZE, TILE_SIZE);
+    setfillcolor(RGB(0, 0, 0));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 200, 50));
 
@@ -783,14 +811,15 @@ void GameScene::createDefaultResources() {
 
     // 创建默认 NPC（森林守护者）
     SetWorkingImage(&npcImg);
-    Resize(NULL, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0, 0));
+    Resize(&npcImg, TILE_SIZE, TILE_SIZE);
+    setfillcolor(RGB(0, 0, 0));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(100, 180, 100));
     solidellipse(4, 4, TILE_SIZE - 4, TILE_SIZE - 4);
 
     // 恢复工作图像
-    SetWorkingImage(NULL);
+    SetWorkingImage();
+    Resize(NULL, 800, 600);
 
     resourcesLoaded = true;
 }

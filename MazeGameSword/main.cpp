@@ -22,8 +22,8 @@ int main() {
         cleardevice();
         
         // 处理当前场景
-        sceneManager.update();
         sceneManager.render();
+        sceneManager.update();
         
         // 检查退出条件
         static bool escProcessed = false;

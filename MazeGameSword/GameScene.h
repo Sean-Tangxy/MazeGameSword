@@ -4,7 +4,7 @@
 #include <vector>
 #include <string>
 #include <map>
-#include<graphics.h>
+#include <graphics.h>
 
 class SceneManager;
 class Player;
