@@ -52,9 +52,11 @@ private:
     Position position;
     IMAGE* sprite;
     int justAttackTimer; // 重命名，避免与方法同名并暴露私有成员
+    int moveCooldown;  // 新增：移动冷却时间
+    static const int MOVE_DELAY = 30;  // 30帧 = 0.5秒（假设60FPS）
 
 public:
-    Enemy(Position startPos) : position(startPos), sprite(nullptr), justAttackTimer(0) {}
+    Enemy(Position startPos) : position(startPos), sprite(nullptr), justAttackTimer(0), moveCooldown(0) {}
 
     // 访问器/修改器（公开）
     int getJustAttackTimer() const { return justAttackTimer; }
@@ -68,6 +70,18 @@ public:
     // 简单AI：朝玩家移动
     void update(const Position& playerPos, const GameScene& scene) {
         // 简单的追踪算法
+        if (justAttackTimer > 0) {
+            --justAttackTimer;
+        }
+
+        // 减少移动冷却
+        if (moveCooldown > 0) {
+            --moveCooldown;
+            return;  // 冷却期间不移动
+        }
+
+        // 重置移动冷却（每秒移动一次）
+        moveCooldown = MOVE_DELAY;
         int dx = 0, dy = 0;
 
         if (position.x < playerPos.x &&
@@ -379,6 +393,7 @@ void GameScene::render() {
     }
 
     // 绘制 NPC
+    // 
     // ... NPC 绘制代码保持不变 ...
 
     // 绘制敌人
@@ -440,6 +455,8 @@ void GameScene::generateFirstLevelMap() {
     map[3][8] = TileType::EMPTY;
     map[7][12] = TileType::EMPTY;
     map[11][6] = TileType::EMPTY;
+	map[7][5] = TileType::EMPTY;
+	map[10][15] = TileType::EMPTY;
 
     // 设置出生点
     map[1][1] = TileType::PLAYER_SPAWN;
@@ -525,7 +542,7 @@ void GameScene::generateItems() {
     items.push_back({ Position(18, 8), ItemType::COIN });
 
     // 生成钥匙
-    items.push_back({ Position(8, 15), ItemType::KEY });
+    items.push_back({ Position(2, 2), ItemType::KEY });
 
     // 生成圣剑碎片
     items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
