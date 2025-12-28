@@ -141,6 +141,7 @@ public:
 
 GameScene::GameScene(SceneManager* manager)
     : sceneManager(manager),
+    stage(1),
     player(nullptr),
     hasKey(false),
     playerHealth(6),
@@ -207,7 +208,7 @@ void GameScene::enter() {
     generateFirstLevelMap();
 
     // 生成物品
-    generateItems();
+    generateFirstStageItems();
 
     // 初始化玩家
     player = new Player(Position(1, 1));
@@ -223,6 +224,50 @@ void GameScene::enter() {
 
     // 显示欢迎消息
     showMessage("第一关：森林迷宫", 180, RGB(100, 255, 100));
+}
+
+void GameScene::initNextStage() {
+    // 清理旧的游戏对象
+//    delete player;
+//    player = nullptr;
+    for (auto enemy : enemies) {
+        delete enemy;
+    }
+    enemies.clear();
+    items.clear();
+    // 重置游戏状态
+    hasKey = false;
+//    playerHealth = 6;
+//    playerMaxHealth = 6;
+    inDialogue = false;
+    currentDialogueStep = 0;
+    isGameOver = false;
+    isGameWon = false;
+    messages.clear();
+    // 生成新地图
+    if (stage == 2) {
+        generateSecondLevelMap();
+        showMessage("第二关：天空之城", 180, RGB(100, 100, 255));
+        npcType = NPCType::SKY_GUARDIAN;
+        initSkyGuardianDialogue();
+        // 生成物品
+        generateSecondStageItems();
+    }
+    else if (stage == 3) {
+        generateThirdLevelMap();
+        showMessage("第三关：岩石洞穴", 180, RGB(255, 100, 100));
+        npcType = NPCType::ROCK_GUARDIAN;
+        initRockGuardianDialogue();
+        //生成物品
+        generateThirdStageItems();
+    }
+    // 初始化玩家
+    player = new Player(Position(1, 1));
+    // 初始化敌人
+    enemies.push_back(new Enemy(Position(15, 10)));
+    enemies.push_back(new Enemy(Position(10, 12)));
+    // 设置 NPC
+    npcPosition = findValidNPCPosition();
 }
 
 void GameScene::exit() {
@@ -300,7 +345,9 @@ void GameScene::update() {
         if (!eProcessed) {
             if (isPlayerNearNPC()) {
                 startDialogue();
-                showMessage("与森林守护者对话中...", 90);
+                if(stage == 1) showMessage("与森林守护者对话中...", 90);
+                else if(stage == 2) showMessage("与天空守护者对话中...", 90);
+				else if(stage == 3) showMessage("与熔岩守护者对话中...", 90);
             }
             eProcessed = true;
         }
@@ -359,7 +406,18 @@ void GameScene::render() {
         settextcolor(WHITE);
         settextstyle(24, 0, _T("宋体"));
         outtextxy(320, 320, _T("按R重新开始"));
-        outtextxy(320, 360, _T("按ESC返回菜单"));
+        outtextxy(320, 360, _T("按ESC返回菜单"));        
+        static bool escProcessed = false;
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
+            if (!escProcessed) {
+                sceneManager->switchTo(SceneType::MENU);
+                // 可以在这里添加返回菜单的逻辑
+                escProcessed = true;
+            }
+        }
+        else {
+            escProcessed = false;
+        }
         return;
     }
 
@@ -374,7 +432,23 @@ void GameScene::render() {
         char scoreText[50];
         sprintf_s(scoreText, "得分: %d", score);
         outtextxy(350, 320, scoreText);
-        outtextxy(300, 360, _T("按ESC进入下一关"));
+        outtextxy(300, 360, _T("按空格键进入下一关"));   
+		static bool spaceProcessed = false;
+        if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+            if (!spaceProcessed) {
+                if(stage < 3){
+                    stage++;
+                    initNextStage();
+                }
+                else {
+                    sceneManager->switchTo(SceneType::END);
+                }
+                spaceProcessed = true;
+            }
+        }
+        else {
+            spaceProcessed = false;
+        }
         return;
     }
 
@@ -539,6 +613,133 @@ void GameScene::generateFirstLevelMap() {
     }
 }
 
+void GameScene::generateSecondLevelMap() {
+    // 清空地图
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            map[y][x] = TileType::EMPTY;
+        }
+    }
+
+    // 创建基本迷宫
+    // 外边界墙
+    for (int x = 0; x < MAP_WIDTH; x++) {
+        map[0][x] = TileType::WALL;
+        map[MAP_HEIGHT - 1][x] = TileType::WALL;
+    }
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        map[y][0] = TileType::WALL;
+        map[y][MAP_WIDTH - 1] = TileType::WALL;
+    }
+
+    // 内墙（创建简单的迷宫结构）
+    // 纵向墙
+    for (int y = 2; y < MAP_HEIGHT - 2; y++) {
+        map[y][3] = TileType::WALL;
+        map[y][6] = TileType::WALL;
+        map[y][10] = TileType::WALL;
+        map[y][14] = TileType::WALL;
+        map[y][17] = TileType::WALL;
+    }
+
+    // 横向墙
+    for (int x = 3; x < MAP_WIDTH - 3; x++) {
+        map[3][x] = TileType::WALL;
+        map[7][x] = TileType::WALL;
+        map[11][x] = TileType::WALL;
+    }
+
+    // 创建一些通道
+    map[3][8] = TileType::EMPTY;
+    map[7][12] = TileType::EMPTY;
+    map[10][6] = TileType::EMPTY;
+    map[7][4] = TileType::EMPTY;
+    map[5][6] = TileType::EMPTY;
+	map[9][10] = TileType::EMPTY;
+	map[4][14] = TileType::EMPTY;
+    map[10][17] = TileType::EMPTY;
+
+    // 设置出生点
+    map[1][1] = TileType::PLAYER_SPAWN;
+
+    // 设置出口
+    map[MAP_HEIGHT - 2][MAP_WIDTH - 2] = TileType::EXIT;
+
+    // 设置门（在出口前）
+    map[MAP_HEIGHT - 2][MAP_WIDTH - 3] = TileType::DOOR;
+
+    // 收集墙的位置用于绘制
+    wallPositions.clear();
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            if (map[y][x] == TileType::WALL) {
+                wallPositions.push_back(Position(x, y));
+            }
+        }
+    }
+}
+
+void GameScene::generateThirdLevelMap() {
+    // 清空地图
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            map[y][x] = TileType::EMPTY;
+        }
+    }
+
+    // 创建基本迷宫
+    // 外边界墙
+    for (int x = 0; x < MAP_WIDTH; x++) {
+        map[0][x] = TileType::WALL;
+        map[MAP_HEIGHT - 1][x] = TileType::WALL;
+    }
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        map[y][0] = TileType::WALL;
+        map[y][MAP_WIDTH - 1] = TileType::WALL;
+    }
+
+    // 内墙（创建简单的迷宫结构）
+    // 纵向墙
+    for (int y = 2; y < MAP_HEIGHT - 2; y++) {
+        map[y][5] = TileType::WALL;
+        map[y][10] = TileType::WALL;
+        map[y][15] = TileType::WALL;
+    }
+
+    // 横向墙
+    for (int x = 5; x < MAP_WIDTH - 5; x++) {
+        map[3][x] = TileType::WALL;
+        map[7][x] = TileType::WALL;
+        map[11][x] = TileType::WALL;
+    }
+
+    // 创建一些通道
+    map[3][8] = TileType::EMPTY;
+    map[7][12] = TileType::EMPTY;
+    map[11][6] = TileType::EMPTY;
+    map[7][5] = TileType::EMPTY;
+    map[10][15] = TileType::EMPTY;
+
+    // 设置出生点
+    map[1][1] = TileType::PLAYER_SPAWN;
+
+    // 设置出口
+    map[MAP_HEIGHT - 2][MAP_WIDTH - 2] = TileType::EXIT;
+
+    // 设置门（在出口前）
+    map[MAP_HEIGHT - 2][MAP_WIDTH - 3] = TileType::DOOR;
+
+    // 收集墙的位置用于绘制
+    wallPositions.clear();
+    for (int y = 0; y < MAP_HEIGHT; y++) {
+        for (int x = 0; x < MAP_WIDTH; x++) {
+            if (map[y][x] == TileType::WALL) {
+                wallPositions.push_back(Position(x, y));
+            }
+        }
+    }
+}
+
 void GameScene::drawMap() {
     // 绘制地板
     setfillcolor(RGB(50, 50, 50));  // 深灰色地板
@@ -590,7 +791,71 @@ void GameScene::drawMap() {
 
 // ========== 物品管理 ==========
 
-void GameScene::generateItems() {
+void GameScene::generateFirstStageItems() {
+    items.clear();
+
+    // 生成药水
+    items.push_back({ Position(3, 3), ItemType::HEALTH_POTION });
+    items.push_back({ Position(15, 10), ItemType::HEALTH_POTION });
+
+    // 生成金币
+    items.push_back({ Position(5, 7), ItemType::COIN });
+    items.push_back({ Position(12, 12), ItemType::COIN });
+    items.push_back({ Position(18, 8), ItemType::COIN });
+
+    // 生成钥匙（确保不在墙上）
+    Position keyPos(2, 2);
+    if (isPositionWalkable(keyPos)) {
+        items.push_back({ keyPos, ItemType::KEY });
+    }
+    else {
+        // 尝试其他位置
+        Position altPositions[] = { Position(3, 2), Position(2, 3), Position(4, 4) };
+        for (const auto& pos : altPositions) {
+            if (isPositionWalkable(pos)) {
+                items.push_back({ pos, ItemType::KEY });
+                break;
+            }
+        }
+    }
+
+    // 生成圣剑碎片
+    items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+}
+
+void GameScene::generateSecondStageItems() {
+    items.clear();
+
+    // 生成药水
+    items.push_back({ Position(15, 2), ItemType::HEALTH_POTION });
+    items.push_back({ Position(4, 10), ItemType::HEALTH_POTION });
+
+    // 生成金币
+    items.push_back({ Position(4, 7), ItemType::COIN });
+    items.push_back({ Position(12, 12), ItemType::COIN });
+    items.push_back({ Position(18, 8), ItemType::COIN });
+
+    // 生成钥匙（确保不在墙上）
+    Position keyPos(1, 13);
+    if (isPositionWalkable(keyPos)) {
+        items.push_back({ keyPos, ItemType::KEY });
+    }
+    else {
+        // 尝试其他位置
+        Position altPositions[] = { Position(3, 2), Position(2, 3), Position(4, 4) };
+        for (const auto& pos : altPositions) {
+            if (isPositionWalkable(pos)) {
+                items.push_back({ pos, ItemType::KEY });
+                break;
+            }
+        }
+    }
+
+    // 生成圣剑碎片
+    items.push_back({ Position(16, 6), ItemType::SWORD_FRAGMENT });
+}
+
+void GameScene::generateThirdStageItems() {
     items.clear();
 
     // 生成药水
@@ -654,7 +919,9 @@ void GameScene::checkItemCollision() {
                 break;
 
             case ItemType::SWORD_FRAGMENT:
-                swordFragments[0] = true;  // 第一关获得第一个碎片
+                if (stage == 1) swordFragments[0] = true;  // 第一关获得第一个碎片
+                if (stage == 2) swordFragments[1] = true;  // 第二关获得第一个碎片
+                if (stage == 3) swordFragments[2] = true;  // 第三关获得第一个碎片
                 showMessage("获得圣剑碎片！", 180, RGB(255, 200, 50));
                 break;
             }
@@ -706,6 +973,14 @@ void GameScene::initForestGuardianDialogue() {
     currentDialogue.push_back({ "森林守护者莉拉娜", "接受它吧。" });
     currentDialogue.push_back({ "森林守护者莉拉娜", "记住——真正的力量不在于征服，而在于守护生命的意志。" });
     currentDialogue.push_back({ "森林守护者莉拉娜", "愿森林的坚韧与你同在。" });
+}
+
+void GameScene::initSkyGuardianDialogue(){
+    currentDialogue.clear();
+}
+
+void GameScene::initRockGuardianDialogue(){
+    currentDialogue.clear();
 }
 
 void GameScene::startDialogue() {
@@ -1179,7 +1454,10 @@ void GameScene::drawUI() {
 
     // 绘制圣剑碎片状态
     char fragmentText[50];
-    sprintf_s(fragmentText, "圣剑碎片: %d/3", swordFragments[0] ? 1 : 0);
+	int numSwordFragments = swordFragments[0] ? 1 : 0;
+	numSwordFragments += swordFragments[1] ? 1 : 0;
+	numSwordFragments += swordFragments[2] ? 1 : 0;
+    sprintf_s(fragmentText, "圣剑碎片: %d/3", numSwordFragments);
     outtextxy(600, 80, fragmentText);
 
     // 绘制操作提示

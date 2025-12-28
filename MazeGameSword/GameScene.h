@@ -31,7 +31,9 @@ enum class ItemType {
 
 // NPC 类型
 enum class NPCType {
-    FOREST_GUARDIAN  // 森林守护者
+    FOREST_GUARDIAN,  // 森林守护者
+	SKY_GUARDIAN,     // 天空守护者
+	ROCK_GUARDIAN     // 岩石守护者
 };
 
 // NPC 对话结构
@@ -65,6 +67,9 @@ struct GameMessage {
 class GameScene : public Scene {
 private:
     SceneManager* sceneManager;
+
+    //游戏阶段
+    int stage;
 
     // 地图相关
     static const int MAP_WIDTH = 20;     // 20列
@@ -123,6 +128,7 @@ public:
     void update() override;
     void render() override;
     void setSceneManager(SceneManager* manager) override { sceneManager = manager; }
+    void initNextStage();
 
     // 工具函数，供 Enemy 类使用
     bool isPositionWalkable(const Position& pos) const;
@@ -135,15 +141,21 @@ public:
 private:
     // 地图生成
     void generateFirstLevelMap();
+    void generateSecondLevelMap();
+    void generateThirdLevelMap();
     void drawMap();
 
     // 物品管理
-    void generateItems();
+    void generateFirstStageItems();
+    void generateSecondStageItems();
+    void generateThirdStageItems();
     void checkItemCollision();
     void removeItem(const Position& pos);
 
     // NPC 对话
     void initForestGuardianDialogue();
+    void initSkyGuardianDialogue();
+    void initRockGuardianDialogue();
     void startDialogue();
     void updateDialogue();
     void renderDialogue();

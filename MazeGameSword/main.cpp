@@ -29,6 +29,7 @@ int main() {
         static bool escProcessed = false;
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             if (!escProcessed) {
+//                sceneManager.switchTo(SceneType::MENU);
                 // 可以在这里添加返回菜单的逻辑
                 escProcessed = true;
             }
