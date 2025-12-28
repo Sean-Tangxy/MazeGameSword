@@ -583,6 +583,8 @@ void BossFightScene::update() {
     if (isGameOver || isBossDefeated) {
         // 检查下一步操作
         static bool spaceProcessed = false;
+        static bool escProcessed = false;  // 添加ESC键状态
+
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spaceProcessed) {
                 if (isBossDefeated) {
@@ -598,6 +600,18 @@ void BossFightScene::update() {
         else {
             spaceProcessed = false;
         }
+
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
+            if (!escProcessed) {
+                // 返回主菜单
+                sceneManager->switchTo(SceneType::MENU);
+                escProcessed = true;
+            }
+        }
+        else {
+            escProcessed = false;
+        }
+
         return;
     }
 

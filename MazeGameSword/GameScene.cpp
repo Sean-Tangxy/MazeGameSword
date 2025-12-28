@@ -192,11 +192,15 @@ void GameScene::enter() {
     }
 
     // 清理旧的游戏对象
-    delete player;
-    player = nullptr;
-
+    if (player) {
+        delete player;
+        player = nullptr;
+    }
     for (auto enemy : enemies) {
-        delete enemy;
+        if (enemy) {
+            delete enemy;
+            enemy = nullptr;
+        }
     }
     enemies.clear();
 
@@ -232,7 +236,10 @@ void GameScene::initNextStage() {
 //    delete player;
 //    player = nullptr;
     for (auto enemy : enemies) {
-        delete enemy;
+        if (enemy) {
+            delete enemy;
+            enemy = nullptr;
+        }
     }
     enemies.clear();
     items.clear();
@@ -407,18 +414,46 @@ void GameScene::render() {
         settextcolor(WHITE);
         settextstyle(24, 0, _T("宋体"));
         outtextxy(320, 320, _T("按R重新开始"));
-        outtextxy(320, 360, _T("按ESC返回菜单"));        
+        outtextxy(320, 360, _T("按ESC返回菜单"));
+
+        // ========== 添加按键处理逻辑 ==========
+        static bool rProcessed = false;
         static bool escProcessed = false;
+
+        // R键：重新开始当前关卡
+        if (GetAsyncKeyState('R') & 0x8000) {
+            if (!rProcessed) {
+                // 重置游戏状态
+                isGameOver = false;
+                isGameWon = false;
+                playerHealth = playerMaxHealth;  // 恢复生命值
+                score = 0;  // 重置分数（或者保留当前分数，根据需求）
+                hasKey = false;
+
+                // 清理并重新生成
+                enter();  // 调用 enter() 重新初始化整个场景
+
+                rProcessed = true;
+            }
+        }
+        else {
+            rProcessed = false;
+        }
+
+        // ESC键：返回主菜单
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             if (!escProcessed) {
-                sceneManager->switchTo(SceneType::MENU);
-                // 可以在这里添加返回菜单的逻辑
+                if (sceneManager) {
+                    // 确保 SceneType::MENU 已定义
+                    sceneManager->switchTo(SceneType::MENU);
+                }
                 escProcessed = true;
             }
         }
         else {
             escProcessed = false;
         }
+
         return;
     }
 
