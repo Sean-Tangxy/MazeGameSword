@@ -35,29 +35,7 @@ enum class BossPhase {
     PHASE_3   // 第三阶段
 };
 
-/*// 位置结构
-struct Position {
-    int x, y;
-    Position(int x = 0, int y = 0) : x(x), y(y) {}
-
-    bool operator==(const Position& other) const {
-        return x == other.x && y == other.y;
-    }
-
-    bool operator!=(const Position& other) const {
-        return !(*this == other);
-    }
-};
-
-// 游戏消息结构
-struct GameMessage {
-    std::string text;
-    int duration;
-    int timer;
-    COLORREF color;
-};*/
-
-//前述部分结构体在CommonTypes.h中已定义
+// 结构体在CommonTypes.h中已定义
 
 class BossFightScene : public Scene {
 private:
@@ -87,6 +65,10 @@ private:
     // 攻击计时
     int attackCooldown;
     int attackTimer;
+
+    // Boss移动相关
+    int bossMoveTimer;
+    int bossMoveCooldown;
 
     // 玩家状态
     int playerHealth;
@@ -149,6 +131,10 @@ private:
     void generateAttack2();  // 纵向骨剑
     void generateAttack3();  // 火球
     void generateAttack4();  // 激光
+
+    // Boss移动
+    void updateBossMovement();
+    Position getRandomBossPosition();
 
     // 子弹管理
     void updateBullets();

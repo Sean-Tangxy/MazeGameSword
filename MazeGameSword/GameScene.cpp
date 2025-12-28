@@ -272,9 +272,9 @@ void GameScene::initNextStage() {
 }
 
 void GameScene::exit() {
-    // 清理游戏对象
-    delete player;
-    player = nullptr;
+    // 清理游戏对象-------------------?
+    //delete player;
+    //player = nullptr;
 
     for (auto enemy : enemies) {
         delete enemy;

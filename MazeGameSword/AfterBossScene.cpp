@@ -157,8 +157,8 @@ void AfterBossScene::initCredits() {
     credits.push_back({ "制作人", "txy" });
     credits.push_back({ "制作人", "cyy" });
     credits.push_back({ "", "" });
-    credits.push_back({ "程序", "txy" });
-    credits.push_back({ "美术", "cyy" });
+    credits.push_back({ "程序", "txy & cyy" });
+    credits.push_back({ "美术", "txx & cyy" });
     credits.push_back({ "策划", "txy & cyy" });
     credits.push_back({ "", "" });
     credits.push_back({ "音乐", "背景音乐来源网络" });
@@ -167,7 +167,7 @@ void AfterBossScene::initCredits() {
     credits.push_back({ "特别感谢", "所有测试玩家" });
     credits.push_back({ "特别感谢", "EasyX图形库" });
     credits.push_back({ "", "" });
-    credits.push_back({ "", "© 2023 勇者斗魔王开发组" });
+    credits.push_back({ "", "© 2025?6 勇者斗魔王开发组" });
     credits.push_back({ "", "All Rights Reserved" });
 }
 

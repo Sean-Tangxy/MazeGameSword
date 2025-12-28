@@ -18,7 +18,8 @@ SceneManager::SceneManager() : currentScene(nullptr), currentSceneType(SceneType
     // 注意：SummaryScene需要特殊处理，通常从游戏结束后调用
 
     // 设置初始场景
-    switchTo(SceneType::MENU);
+    switchTo(SceneType::MENU);//正常流程->调试用
+	//switchTo(SceneType::BOSS);//调试用，直接跳过菜单打BOSS
 }
 
 SceneManager::~SceneManager() {

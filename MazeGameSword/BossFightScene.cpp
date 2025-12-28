@@ -1,5 +1,5 @@
 // BossFightScene.cpp
-#define NOMINMAX// 防止windows.h定义min/max宏
+#define NOMINMAX  // 防止windows.h定义min/max宏
 #include"CommonTypes.h"
 #include "BossFightScene.h"
 #include "SceneManager.h"
@@ -76,19 +76,24 @@ private:
     int health;
     int maxHealth;
     int phase;
+    Position targetPosition;  // 目标位置
 
 public:
     Boss() : sprite(nullptr), health(3000), maxHealth(3000), phase(1) {}
     Boss(Position startPos) : position(startPos), sprite(nullptr),
-        health(3000), maxHealth(3000), phase(1) {
+        health(3000), maxHealth(3000), phase(1), targetPosition(startPos) {
     }
 
     Position getPosition() const { return position; }
     int getHealth() const { return health; }
     int getMaxHealth() const { return maxHealth; }
     int getPhase() const { return phase; }
+    Position getTargetPosition() const { return targetPosition; }
 
     void setSprite(IMAGE* img) { sprite = img; }
+    void setPosition(const Position& pos) { position = pos; }
+    void setTargetPosition(const Position& target) { targetPosition = target; }
+
     void takeDamage(int damage) {
         health -= damage;
         if (health < 0) health = 0;
@@ -232,17 +237,17 @@ public:
     }
 
     void update() override {
-        // 追踪玩家
-        if (lifeTimer < 150) {  // 2.5秒内追踪
-            int dx = targetPos.x - position.x;
-            int dy = targetPos.y - position.y;
+        // 每帧追踪玩家位置
+        int dx = targetPos.x - position.x;
+        int dy = targetPos.y - position.y;
 
-            // 归一化方向
-            float length = sqrt(dx * dx + dy * dy);
-            if (length > 0) {
-                velocity.x = static_cast<int>((dx / length) * 2);  // 速度2格/秒
-                velocity.y = static_cast<int>((dy / length) * 2);
-            }
+        // 归一化方向
+        float length = sqrt(dx * dx + dy * dy);
+        if (length > 0) {
+            // 速度0.5格/秒，即每帧0.5/60格
+            float speed = 0.5f / 60.0f;
+            velocity.x = static_cast<int>((dx / length) * speed * 100);  // 乘以100避免小数精度问题
+            velocity.y = static_cast<int>((dy / length) * speed * 100);
         }
 
         BossBullet::update();
@@ -277,20 +282,15 @@ private:
     bool horizontal;  // true为横向激光
     int delayTimer;
     bool firing;
+    bool warning;     // 预警状态
+    int warningTimer; // 预警计时器
 
 public:
     LaserBullet(int x1, int y1, int x2, int y2, bool isHorizontal, int delay)
         : BossBullet(Position(x1, y1), Position(0, 0), BossBulletType::LASER, 1, 30),  // 持续0.5秒
         startX(x1), endX(x2), startY(y1), endY(y2),
-        horizontal(isHorizontal), delayTimer(delay), firing(false) {
-        if (isHorizontal) {
-            position.x = x1;
-            position.y = y1;
-        }
-        else {
-            position.x = x1;
-            position.y = y1;
-        }
+        horizontal(isHorizontal), delayTimer(delay),
+        firing(false), warning(true), warningTimer(60) {  // 1秒预警
     }
 
     void update() override {
@@ -299,15 +299,101 @@ public:
             return;
         }
 
-        if (!firing) {
-            firing = true;
-            lifeTimer = 0;
+        if (warning) {
+            warningTimer--;
+            if (warningTimer <= 0) {
+                warning = false;
+                firing = true;
+                lifeTimer = 0;
+            }
+            return;
         }
 
         BossBullet::update();
     }
 
     void render(int tileSize) const override {
+        if (warning) {
+            // 绘制预警效果
+            if (horizontal) {
+                // 横向激光预警：闪烁的红线
+                int alpha = (warningTimer / 3) % 2 == 0 ? 150 : 80;
+
+                // 绘制预警线（虚线）
+                setlinestyle(PS_DASH, 2);
+                setlinecolor(RGB(255, 100, 100));
+                line(startX * tileSize + tileSize / 2,
+                    startY * tileSize + tileSize / 2,
+                    endX * tileSize + tileSize / 2,
+                    endY * tileSize + tileSize / 2);
+
+                // 绘制激光源（闪烁）
+                if ((warningTimer / 10) % 2 == 0) {
+                    setfillcolor(RGB(255, 50, 50));
+                    solidcircle(startX * tileSize + tileSize / 2,
+                        startY * tileSize + tileSize / 2,
+                        tileSize / 3);
+                }
+
+                // 绘制方向箭头
+                setlinecolor(RGB(255, 200, 100));
+                setlinestyle(PS_SOLID, 2);
+                if (startX < endX) {
+                    // 从左到右
+                    line(endX * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2,
+                        (endX - 1) * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2);
+                }
+                else {
+                    // 从右到左
+                    line(endX * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2,
+                        (endX + 1) * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2);
+                }
+            }
+            else {
+                // 纵向激光预警
+                int alpha = (warningTimer / 3) % 2 == 0 ? 150 : 80;
+
+                // 绘制预警线（虚线）
+                setlinestyle(PS_DASH, 2);
+                setlinecolor(RGB(255, 100, 100));
+                line(startX * tileSize + tileSize / 2,
+                    startY * tileSize + tileSize / 2,
+                    endX * tileSize + tileSize / 2,
+                    endY * tileSize + tileSize / 2);
+
+                // 绘制激光源（闪烁）
+                if ((warningTimer / 10) % 2 == 0) {
+                    setfillcolor(RGB(255, 50, 50));
+                    solidcircle(startX * tileSize + tileSize / 2,
+                        startY * tileSize + tileSize / 2,
+                        tileSize / 3);
+                }
+
+                // 绘制方向箭头
+                setlinecolor(RGB(255, 200, 100));
+                setlinestyle(PS_SOLID, 2);
+                if (startY < endY) {
+                    // 从上到下
+                    line(endX * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2,
+                        endX * tileSize + tileSize / 2,
+                        (endY - 1) * tileSize + tileSize / 2);
+                }
+                else {
+                    // 从下到上
+                    line(endX * tileSize + tileSize / 2,
+                        endY * tileSize + tileSize / 2,
+                        endX * tileSize + tileSize / 2,
+                        (endY + 1) * tileSize + tileSize / 2);
+                }
+            }
+            return;
+        }
+
         if (!firing) return;
 
         if (sprite) {
@@ -353,7 +439,7 @@ public:
     }
 
     bool checkCollision(const Position& otherPos) const override {
-        if (!firing) return false;
+        if (warning || !firing) return false;
 
         if (horizontal) {
             // 横向激光：检查Y坐标相同且X在范围内
@@ -372,19 +458,29 @@ public:
 
 // ========== 玩家圣剑子弹类 ==========
 class HolySwordBullet : public BossBullet {
+private:
+    Position targetPos;
+
 public:
     HolySwordBullet(Position pos, Position target)
-        : BossBullet(pos, Position(0, 0), BossBulletType::BONE_SWORD_HORIZONTAL, 20, -1) {
+        : BossBullet(pos, Position(0, 0), BossBulletType::BONE_SWORD_HORIZONTAL, 20, -1),
+        targetPos(target) {
         // 计算向目标移动的方向
         int dx = target.x - pos.x;
         int dy = target.y - pos.y;
 
-        // 归一化方向（速度10格/秒）
+        // 归一化方向（速度2格/秒）
         float length = sqrt(dx * dx + dy * dy);
         if (length > 0) {
-            velocity.x = static_cast<int>((dx / length) * 10);
-            velocity.y = static_cast<int>((dy / length) * 10);
+            // 速度2格/秒 = 每帧2/60 = 1/30格
+            velocity.x = static_cast<int>((dx / length) * 0.033f * 100);  // 乘以100避免小数
+            velocity.y = static_cast<int>((dy / length) * 0.033f * 100);
         }
+    }
+
+    void update() override {
+        // 更新目标位置（如果目标移动了）
+        BossBullet::update();
     }
 
     void render(int tileSize) const override {
@@ -419,8 +515,11 @@ BossFightScene::BossFightScene(SceneManager* manager)
     inPhaseTransition(false),
     currentDialogueStep(0),
     inDialogue(false),
-    attackCooldown(480),  // 8秒 * 60帧
+    attackCooldown(180),  // 3秒 * 60帧
     attackTimer(0),
+    // Boss移动相关
+    bossMoveTimer(0),
+    bossMoveCooldown(60),  // 每秒移动一次
     playerHealth(6),
     playerMaxHealth(6),
     hasHolySword(false),
@@ -439,9 +538,6 @@ BossFightScene::~BossFightScene() {
 }
 
 void BossFightScene::enter() {
-    // 从GameScene获取玩家状态
-    // 这里需要sceneManager->getGameScene()来获取碎片状态，暂时假设已获得
-
     // 初始化玩家
     player = new Player(Position(16, 12));  // 地图中央下方
     player->setHealth(playerHealth);
@@ -456,6 +552,7 @@ void BossFightScene::enter() {
     inPhaseTransition = false;
     inDialogue = false;
     attackTimer = 0;
+    bossMoveTimer = 0;
     isBossDefeated = false;
     isGameOver = false;
 
@@ -587,6 +684,9 @@ void BossFightScene::update() {
             player->setPosition(newPos);
         }
     }
+
+    // 更新Boss移动
+    updateBossMovement();
 
     // 更新攻击计时
     attackTimer++;
@@ -831,13 +931,13 @@ void BossFightScene::generateAttack1() {
         if (fromLeft) {
             // 从左侧生成，飞向右侧
             Position pos(1, y);
-            Position vel(10, 0);  // 10格/秒
+            Position vel(1, 0);  // 1格/秒
             bossBullets.push_back(new BoneSwordBullet(pos, vel, true));
         }
         else {
             // 从右侧生成，飞向左侧
             Position pos(31, y);
-            Position vel(-10, 0);
+            Position vel(-1, 0);
             bossBullets.push_back(new BoneSwordBullet(pos, vel, true));
         }
     }
@@ -859,13 +959,13 @@ void BossFightScene::generateAttack2() {
         if (fromTop) {
             // 从上侧生成，飞向下侧
             Position pos(x, 6);
-            Position vel(0, 6);  // 6格/秒
+            Position vel(0, 1);  // 1格/秒
             bossBullets.push_back(new BoneSwordBullet(pos, vel, false));
         }
         else {
             // 从下侧生成，飞向上侧
             Position pos(x, 17);
-            Position vel(0, -6);
+            Position vel(0, -1);
             bossBullets.push_back(new BoneSwordBullet(pos, vel, false));
         }
     }
@@ -902,7 +1002,7 @@ void BossFightScene::generateAttack4() {
     // 生成三个激光，依次发射
     for (int i = 0; i < 3; i++) {
         bool horizontal = (rand() % 2 == 0);
-        int delay = (i + 1) * 60;  // 每个间隔1秒
+        int delay = i * 30;  // 每个间隔0.5秒
 
         if (horizontal) {
             // 横向激光
@@ -917,6 +1017,71 @@ void BossFightScene::generateAttack4() {
                 false, delay));
         }
     }
+}
+
+// Boss移动函数
+void BossFightScene::updateBossMovement() {
+    if (!boss || inPhaseTransition) return;
+
+    bossMoveTimer++;
+    if (bossMoveTimer >= bossMoveCooldown) {
+        bossMoveTimer = 0;
+
+        // 获取新的随机位置
+        Position newTarget = getRandomBossPosition();
+        Position currentPos = boss->getPosition();
+
+        // 移动到新位置（每帧移动一部分，实现平滑移动）
+        // 3格每秒 = 每帧移动3/60 = 0.05格
+        int dx = newTarget.x - currentPos.x;
+        int dy = newTarget.y - currentPos.y;
+
+        // 如果距离小于0.5格，直接设置到目标位置
+        if (abs(dx) < 1 && abs(dy) < 1) {
+            boss->setPosition(newTarget);
+        }
+        else {
+            // 移动一小步
+            float moveX = (dx > 0) ? 0.05f : (dx < 0) ? -0.05f : 0;
+            float moveY = (dy > 0) ? 0.05f : (dy < 0) ? -0.05f : 0;
+
+            // 累积移动量
+            static float accumulatedX = 0, accumulatedY = 0;
+            accumulatedX += moveX;
+            accumulatedY += moveY;
+
+            // 当累积移动量超过1时，实际移动一格
+            if (fabs(accumulatedX) >= 1.0f) {
+                Position newPos = currentPos;
+                newPos.x += (accumulatedX > 0) ? 1 : -1;
+
+                // 确保位置有效且在Boss区域
+                if (isPositionValid(newPos) && isPositionInBossArea(newPos)) {
+                    boss->setPosition(newPos);
+                }
+                accumulatedX = 0;
+            }
+
+            if (fabs(accumulatedY) >= 1.0f) {
+                Position newPos = currentPos;
+                newPos.y += (accumulatedY > 0) ? 1 : -1;
+
+                // 确保位置有效且在Boss区域
+                if (isPositionValid(newPos) && isPositionInBossArea(newPos)) {
+                    boss->setPosition(newPos);
+                }
+                accumulatedY = 0;
+            }
+        }
+    }
+}
+
+Position BossFightScene::getRandomBossPosition() {
+    // 在Boss区域内随机移动（x: 0-31, y: 0-5）
+    int x = rand() % MAP_WIDTH;
+    int y = rand() % 6;  // 0-5，Boss区域
+
+    return Position(x, y);
 }
 
 // 子弹管理
@@ -995,10 +1160,10 @@ void BossFightScene::checkPhaseTransition() {
     int health = boss->getHealth();
     BossPhase newPhase = currentPhase;
 
-    if (currentPhase == BossPhase::PHASE_1 && health < 1700) {
+    if (currentPhase == BossPhase::PHASE_1 && health < 2000) {
         newPhase = BossPhase::PHASE_2;
     }
-    else if (currentPhase == BossPhase::PHASE_2 && health < 400) {
+    else if (currentPhase == BossPhase::PHASE_2 && health < 1000) {
         newPhase = BossPhase::PHASE_3;
     }
 
@@ -1129,10 +1294,12 @@ void BossFightScene::renderMessages() {
 
 // UI绘制
 void BossFightScene::drawUI() {
+    if (!boss || !player) return;
+
     // 绘制Boss血条（顶部中央）
     int bossBarWidth = 400;
     int bossBarX = (MAP_WIDTH * TILE_SIZE - bossBarWidth) / 2;
-    drawHealthBar(bossBarX, 20, bossBarWidth, 25, bossHealth, bossMaxHealth, RGB(128, 0, 128));
+    drawHealthBar(bossBarX, 20, bossBarWidth, 25, boss->getHealth(), boss->getMaxHealth(), RGB(128, 0, 128));
 
     // 绘制Boss名字
     settextcolor(RGB(255, 100, 255));
