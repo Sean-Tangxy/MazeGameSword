@@ -1,5 +1,6 @@
 // GameScene.h
 #pragma once
+#include"CommonTypes.h"
 #include "Scene.h"
 #include <vector>
 #include <string>
@@ -42,7 +43,7 @@ struct NPCDialogue {
     std::string content;
 };
 
-// 地图坐标结构
+/*// 地图坐标结构
 struct Position {
     int x, y;
     Position(int x = 0, int y = 0) : x(x), y(y) {}
@@ -62,7 +63,8 @@ struct GameMessage {
     int duration;
     int timer;
     COLORREF color;
-};
+};*/
+// 前述部分结构体在CommonTypes.h中已定义
 
 class GameScene : public Scene {
 private:

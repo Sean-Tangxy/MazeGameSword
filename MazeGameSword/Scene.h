@@ -1,4 +1,4 @@
-// Scene.h - 场景基类
+// Scene.h - 更新版
 #pragma once
 #include <string>
 
@@ -7,9 +7,10 @@ enum class SceneType {
     MENU,       // 主菜单
     STORY,      // 剧情
     GAME,       // 游戏关卡
-    BOSS,       // BOSS战
-    END,        // 结局
-    DEATH       // 死亡场景
+    BOSS,       // BOSS战（新增）
+    END,        // 结局（更新）
+    DEATH,      // 死亡场景
+    SUMMARY     // 结算界面（新增，可选）
 };
 
 // 前向声明 SceneManager

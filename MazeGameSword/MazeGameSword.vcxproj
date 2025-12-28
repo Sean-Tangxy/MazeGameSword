@@ -127,8 +127,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AfterBossScene.h" />
+    <ClInclude Include="BeforeBossScene.h" />
     <ClInclude Include="Boss.h" />
+    <ClInclude Include="BossFightScene.h" />
     <ClInclude Include="BossScene.h" />
+    <ClInclude Include="CommonTypes.h" />
     <ClInclude Include="DeathScene.h" />
     <ClInclude Include="EndScene.h" />
     <ClInclude Include="Enemy.h" />
@@ -142,10 +146,14 @@
     <ClInclude Include="Scene.h" />
     <ClInclude Include="SceneManager.h" />
     <ClInclude Include="StoryScene.h" />
+    <ClInclude Include="SummaryScene.h" />
     <ClInclude Include="UI.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AfterBossScene.cpp" />
+    <ClCompile Include="BeforeBossScene.cpp" />
     <ClCompile Include="Boss.cpp" />
+    <ClCompile Include="BossFightScene.cpp" />
     <ClCompile Include="BossScene.cpp" />
     <ClCompile Include="DeathScene.cpp" />
     <ClCompile Include="EndScene.cpp" />
@@ -159,6 +167,7 @@
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="SceneManager.cpp" />
     <ClCompile Include="StoryScene.cpp" />
+    <ClCompile Include="SummaryScene.cpp" />
     <ClCompile Include="UI.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

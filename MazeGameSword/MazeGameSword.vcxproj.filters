@@ -63,6 +63,21 @@
     <ClInclude Include="include\graphics.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="BeforeBossScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="BossFightScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="AfterBossScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="SummaryScene.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="CommonTypes.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Boss.cpp">
@@ -108,6 +123,18 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="UI.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="BossFightScene.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="AfterBossScene.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="SummaryScene.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="BeforeBossScene.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

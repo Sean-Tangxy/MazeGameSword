@@ -1,4 +1,5 @@
 // GameScene.cpp
+#include"CommonTypes.h"
 #include "GameScene.h"
 #include "SceneManager.h"
 #include <graphics.h>
@@ -441,7 +442,7 @@ void GameScene::render() {
                     initNextStage();
                 }
                 else {
-                    sceneManager->switchTo(SceneType::END);
+                    sceneManager->switchTo(SceneType::BOSS);
                 }
                 spaceProcessed = true;
             }
