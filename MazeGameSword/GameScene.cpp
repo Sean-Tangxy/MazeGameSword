@@ -273,8 +273,8 @@ void GameScene::initNextStage() {
 
 void GameScene::exit() {
     // 清理游戏对象-------------------?
-    //delete player;
-    //player = nullptr;
+//    delete player;
+//    player = nullptr;
 
     for (auto enemy : enemies) {
         delete enemy;
@@ -407,7 +407,19 @@ void GameScene::render() {
         settextcolor(WHITE);
         settextstyle(24, 0, _T("宋体"));
         outtextxy(320, 320, _T("按R重新开始"));
-        outtextxy(320, 360, _T("按ESC返回菜单"));        
+        outtextxy(320, 360, _T("按ESC返回菜单")); 
+
+        static bool rProcessed = false;
+        if (GetAsyncKeyState('R') & 0x8000) {
+            if (!rProcessed) {
+                sceneManager->switchTo(SceneType::GAME);
+                rProcessed = true;
+            }
+        }
+        else {
+            rProcessed = false;
+        }
+
         static bool escProcessed = false;
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             if (!escProcessed) {
