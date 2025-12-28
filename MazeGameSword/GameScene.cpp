@@ -10,8 +10,10 @@
 #include <windows.h>
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
+#include <cmath>
 
-// 简单的 Player 类定义（可以分离到单独文件）
+// ========== Player 类 ==========
 class Player {
 private:
     Position position;
@@ -46,19 +48,21 @@ public:
     }
 };
 
-// 简单的 Enemy 类定义
+// ========== Enemy 类 ==========
 class Enemy {
 private:
     Position position;
     IMAGE* sprite;
-    int justAttackTimer; // 重命名，避免与方法同名并暴露私有成员
-    int moveCooldown;  // 新增：移动冷却时间
+    int justAttackTimer;
+    int moveCooldown;
     static const int MOVE_DELAY = 30;  // 30帧 = 0.5秒（假设60FPS）
 
 public:
-    Enemy(Position startPos) : position(startPos), sprite(nullptr), justAttackTimer(0), moveCooldown(0) {}
+    Enemy(Position startPos) : position(startPos), sprite(nullptr),
+        justAttackTimer(0), moveCooldown(0) {
+    }
 
-    // 访问器/修改器（公开）
+    // 访问器/修改器
     int getJustAttackTimer() const { return justAttackTimer; }
     void decreaseJustAttackTimer() { if (justAttackTimer > 0) --justAttackTimer; }
     void setJustAttackTimer(int v) { justAttackTimer = v; }
@@ -69,7 +73,7 @@ public:
 
     // 简单AI：朝玩家移动
     void update(const Position& playerPos, const GameScene& scene) {
-        // 简单的追踪算法
+        // 减少攻击冷却
         if (justAttackTimer > 0) {
             --justAttackTimer;
         }
@@ -80,10 +84,11 @@ public:
             return;  // 冷却期间不移动
         }
 
-        // 重置移动冷却（每秒移动一次）
+        // 重置移动冷却
         moveCooldown = MOVE_DELAY;
         int dx = 0, dy = 0;
 
+        // 简单追踪算法
         if (position.x < playerPos.x &&
             scene.isPositionWalkable({ position.x + 1, position.y })) {
             dx = 1;
@@ -112,6 +117,7 @@ public:
             }
         }
 
+        // 更新位置
         position.x += dx;
         position.y += dy;
     }
@@ -167,15 +173,16 @@ GameScene::~GameScene() {
 }
 
 void GameScene::enter() {
-
     // 重置游戏状态
     hasKey = false;
     playerHealth = 6;
     playerMaxHealth = 6;
     score = 0;
     inDialogue = false;
+    currentDialogueStep = 0;
     isGameOver = false;
     isGameWon = false;
+    messages.clear();
 
     // 初始化圣剑碎片
     for (int i = 0; i < 3; i++) {
@@ -210,15 +217,15 @@ void GameScene::enter() {
     enemies.push_back(new Enemy(Position(10, 12)));
 
     // 设置 NPC
-    npcPosition = Position(10, 5);
+    npcPosition = findValidNPCPosition();
     npcType = NPCType::FOREST_GUARDIAN;
     initForestGuardianDialogue();
+
+    // 显示欢迎消息
+    showMessage("第一关：森林迷宫", 180, RGB(100, 255, 100));
 }
 
 void GameScene::exit() {
-    // 清理资源
-    unloadResources();
-
     // 清理游戏对象
     delete player;
     player = nullptr;
@@ -227,6 +234,9 @@ void GameScene::exit() {
         delete enemy;
     }
     enemies.clear();
+
+    // 清理资源
+    unloadResources();
 }
 
 void GameScene::update() {
@@ -236,6 +246,7 @@ void GameScene::update() {
 
     if (inDialogue) {
         updateDialogue();
+        updateMessages();
         return;
     }
 
@@ -287,10 +298,9 @@ void GameScene::update() {
     static bool eProcessed = false;
     if (GetAsyncKeyState('E') & 0x8000) {
         if (!eProcessed) {
-            Position playerPos = player->getPosition();
-            if (abs(playerPos.x - npcPosition.x) <= 1 &&
-                abs(playerPos.y - npcPosition.y) <= 1) {
+            if (isPlayerNearNPC()) {
                 startDialogue();
+                showMessage("与森林守护者对话中...", 90);
             }
             eProcessed = true;
         }
@@ -315,8 +325,8 @@ void GameScene::update() {
 
             // 检查出口
             if (map[newPos.y][newPos.x] == TileType::EXIT && hasKey) {
-                // 通关
                 isGameWon = true;
+                showMessage("通关成功！找到出口了！", 300, RGB(255, 215, 0));
                 return;
             }
         }
@@ -330,6 +340,9 @@ void GameScene::update() {
 
     // 检查游戏状态
     checkGameStatus();
+
+    // 更新消息系统
+    updateMessages();
 }
 
 void GameScene::render() {
@@ -376,25 +389,70 @@ void GameScene::render() {
     for (const auto& item : items) {
         int screenX = item.first.x * TILE_SIZE;
         int screenY = item.first.y * TILE_SIZE;
-        
-        if(item.second==ItemType::HEALTH_POTION){
-            putimage(screenX, screenY, &healthPotionImg);
+
+        // 确保物品可见：先绘制背景
+        setfillcolor(RGB(40, 40, 40));
+        solidrectangle(screenX, screenY, screenX + TILE_SIZE, screenY + TILE_SIZE);
+
+        // 绘制物品
+        if (item.second == ItemType::HEALTH_POTION) {
+            if (resourcesLoaded) {
+                putimage(screenX, screenY, &healthPotionImg);
+            }
+            else {
+                setfillcolor(RGB(0, 255, 0));
+                solidrectangle(screenX + 10, screenY + 10, screenX + 30, screenY + 30);
+            }
         }
-        else if(item.second==ItemType::COIN){
-            putimage(screenX, screenY, &coinImg);
+        else if (item.second == ItemType::COIN) {
+            if (resourcesLoaded) {
+                putimage(screenX, screenY, &coinImg);
+            }
+            else {
+                setfillcolor(RGB(255, 215, 0));
+                solidcircle(screenX + 20, screenY + 20, 15);
+            }
         }
-        else if(item.second==ItemType::KEY){
-            putimage(screenX, screenY, &keyImg);
+        else if (item.second == ItemType::KEY) {
+            if (resourcesLoaded) {
+                putimage(screenX, screenY, &keyImg);
+            }
+            else {
+                setfillcolor(RGB(255, 165, 0));
+                solidrectangle(screenX + 10, screenY + 15, screenX + 30, screenY + 25);
+                solidcircle(screenX + 35, screenY + 20, 10);
+            }
         }
-        else if(item.second==ItemType::SWORD_FRAGMENT){
-            putimage(screenX, screenY, &swordFragmentImg);
-		}
-        // ... 绘制物品的代码保持不变 ...
+        else if (item.second == ItemType::SWORD_FRAGMENT) {
+            if (resourcesLoaded) {
+                putimage(screenX, screenY, &swordFragmentImg);
+            }
+            else {
+                setfillcolor(RGB(255, 200, 50));
+                POINT triangle[3] = {
+                    {screenX + 20, screenY + 5},
+                    {screenX + 5, screenY + 35},
+                    {screenX + 35, screenY + 35}
+                };
+                solidpolygon(triangle, 3);
+            }
+        }
     }
 
     // 绘制 NPC
-    // 
-    // ... NPC 绘制代码保持不变 ...
+    if (!inDialogue) {
+        if (resourcesLoaded) {
+            putimage(npcPosition.x * TILE_SIZE, npcPosition.y * TILE_SIZE, &npcImg);
+        }
+        else {
+            drawDefaultNPC(npcPosition.x * TILE_SIZE, npcPosition.y * TILE_SIZE);
+        }
+
+        // 当玩家靠近时显示互动提示
+        if (isPlayerNearNPC()) {
+            drawInteractionPrompt(npcPosition.x * TILE_SIZE, npcPosition.y * TILE_SIZE);
+        }
+    }
 
     // 绘制敌人
     for (const auto& enemy : enemies) {
@@ -408,6 +466,9 @@ void GameScene::render() {
 
     // 绘制 UI
     drawUI();
+
+    // 绘制消息
+    renderMessages();
 
     // 绘制对话（如果正在进行）
     if (inDialogue) {
@@ -425,7 +486,7 @@ void GameScene::generateFirstLevelMap() {
         }
     }
 
-    // 创建基本迷宫（适应新的大小）
+    // 创建基本迷宫
     // 外边界墙
     for (int x = 0; x < MAP_WIDTH; x++) {
         map[0][x] = TileType::WALL;
@@ -455,8 +516,8 @@ void GameScene::generateFirstLevelMap() {
     map[3][8] = TileType::EMPTY;
     map[7][12] = TileType::EMPTY;
     map[11][6] = TileType::EMPTY;
-	map[7][5] = TileType::EMPTY;
-	map[10][15] = TileType::EMPTY;
+    map[7][5] = TileType::EMPTY;
+    map[10][15] = TileType::EMPTY;
 
     // 设置出生点
     map[1][1] = TileType::PLAYER_SPAWN;
@@ -541,8 +602,21 @@ void GameScene::generateItems() {
     items.push_back({ Position(12, 12), ItemType::COIN });
     items.push_back({ Position(18, 8), ItemType::COIN });
 
-    // 生成钥匙
-    items.push_back({ Position(2, 2), ItemType::KEY });
+    // 生成钥匙（确保不在墙上）
+    Position keyPos(2, 2);
+    if (isPositionWalkable(keyPos)) {
+        items.push_back({ keyPos, ItemType::KEY });
+    }
+    else {
+        // 尝试其他位置
+        Position altPositions[] = { Position(3, 2), Position(2, 3), Position(4, 4) };
+        for (const auto& pos : altPositions) {
+            if (isPositionWalkable(pos)) {
+                items.push_back({ pos, ItemType::KEY });
+                break;
+            }
+        }
+    }
 
     // 生成圣剑碎片
     items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
@@ -558,10 +632,12 @@ void GameScene::checkItemCollision() {
             switch (it->second) {
             case ItemType::HEALTH_POTION:
                 playerHealth = min(playerHealth + 1, playerMaxHealth);
+                showMessage("获得生命药水！生命值+1", 120, RGB(0, 255, 0));
                 break;
 
             case ItemType::COIN:
                 score += 100;
+                showMessage("获得金币！分数+100", 120, RGB(255, 215, 0));
                 break;
 
             case ItemType::KEY:
@@ -574,10 +650,12 @@ void GameScene::checkItemCollision() {
                         }
                     }
                 }
+                showMessage("获得钥匙！门已打开", 180, RGB(255, 165, 0));
                 break;
 
             case ItemType::SWORD_FRAGMENT:
                 swordFragments[0] = true;  // 第一关获得第一个碎片
+                showMessage("获得圣剑碎片！", 180, RGB(255, 200, 50));
                 break;
             }
 
@@ -586,6 +664,15 @@ void GameScene::checkItemCollision() {
         }
         else {
             ++it;
+        }
+    }
+}
+
+void GameScene::removeItem(const Position& pos) {
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        if (it->first == pos) {
+            items.erase(it);
+            break;
         }
     }
 }
@@ -637,7 +724,10 @@ void GameScene::updateDialogue() {
             if (currentDialogueStep >= currentDialogue.size()) {
                 endDialogue();
                 // 对话结束后给予圣剑碎片
-                items.push_back({ npcPosition, ItemType::SWORD_FRAGMENT });
+                if (!swordFragments[0]) {
+                    items.push_back({ npcPosition, ItemType::SWORD_FRAGMENT });
+                    showMessage("森林守护者给予你圣剑碎片！", 180, RGB(255, 200, 50));
+                }
             }
         }
     }
@@ -646,8 +736,15 @@ void GameScene::updateDialogue() {
     }
 
     // ESC 跳过对话
+    static bool escProcessed = false;
     if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
-        endDialogue();
+        if (!escProcessed) {
+            endDialogue();
+            escProcessed = true;
+        }
+    }
+    else {
+        escProcessed = false;
     }
 }
 
@@ -680,6 +777,7 @@ void GameScene::renderDialogue() {
     settextcolor(RGB(200, 200, 200));
     settextstyle(18, 0, _T("宋体"));
     outtextxy(550, 520, _T("按空格继续"));
+    outtextxy(550, 540, _T("按ESC跳过"));
 }
 
 void GameScene::endDialogue() {
@@ -687,11 +785,116 @@ void GameScene::endDialogue() {
     currentDialogueStep = 0;
 }
 
+// ========== NPC 绘制辅助 ==========
+
+void GameScene::drawDefaultNPC(int screenX, int screenY) {
+    // NPC主体（绿色圆形）
+    setfillcolor(RGB(100, 180, 100));
+    solidcircle(screenX + TILE_SIZE / 2, screenY + TILE_SIZE / 2, TILE_SIZE / 2 - 4);
+
+    // NPC面部特征
+    setfillcolor(WHITE);
+    solidcircle(screenX + TILE_SIZE / 2 - 8, screenY + TILE_SIZE / 2 - 4, 3);  // 左眼
+    solidcircle(screenX + TILE_SIZE / 2 + 8, screenY + TILE_SIZE / 2 - 4, 3);  // 右眼
+
+    // 嘴巴（微笑）
+    setlinecolor(WHITE);
+    setlinestyle(PS_SOLID, 2);
+    arc(screenX + TILE_SIZE / 2 - 6, screenY + TILE_SIZE / 2 + 4,
+        screenX + TILE_SIZE / 2 + 6, screenY + TILE_SIZE / 2 + 10,
+        0, 180);
+
+    // 精灵光环（森林守护者的特效）
+    static int glowAngle = 0;
+    glowAngle = (glowAngle + 2) % 360;
+
+    setlinecolor(RGB(100, 255, 100));
+    setlinestyle(PS_SOLID, 1);
+
+    for (int i = 0; i < 3; i++) {
+        int angle = glowAngle + i * 120;
+        int glowX = screenX + TILE_SIZE / 2 + (int)(cos(angle * 3.14159 / 180.0) * 20);
+        int glowY = screenY + TILE_SIZE / 2 + (int)(sin(angle * 3.14159 / 180.0) * 20);
+        circle(glowX, glowY, 6);
+    }
+}
+
+bool GameScene::isPlayerNearNPC() const {
+    if (!player || inDialogue) return false;
+
+    Position playerPos = player->getPosition();
+    int dx = abs(playerPos.x - npcPosition.x);
+    int dy = abs(playerPos.y - npcPosition.y);
+
+    return (dx <= 1 && dy <= 1 && (dx + dy) > 0);  // 相邻且不重合
+}
+
+void GameScene::drawInteractionPrompt(int npcScreenX, int npcScreenY) {
+    // 绘制提示框
+    int promptX = npcScreenX - 10;
+    int promptY = npcScreenY - 40;
+
+    setfillcolor(RGB(0, 0, 0, 200));
+    solidrectangle(promptX, promptY, promptX + 100, promptY + 30);
+
+    setlinecolor(RGB(218, 165, 32));
+    rectangle(promptX, promptY, promptX + 100, promptY + 30);
+
+    // 绘制提示文字
+    settextcolor(RGB(255, 255, 200));
+    settextstyle(16, 0, _T("宋体"));
+    setbkmode(TRANSPARENT);
+
+    // 显示"按E互动"
+    outtextxy(promptX + 20, promptY + 7, _T("按 E 互动"));
+
+    // 绘制E键图标
+    setfillcolor(RGB(255, 200, 0));
+    solidrectangle(promptX + 5, promptY + 5, promptX + 18, promptY + 18);
+
+    settextcolor(BLACK);
+    settextstyle(12, 0, _T("Arial"));
+    outtextxy(promptX + 7, promptY + 3, _T("E"));
+}
+
+Position GameScene::findValidNPCPosition() {
+    // 预定义几个可能的位置
+    std::vector<Position> possiblePositions = {
+        Position(10, 5),   // 原位置
+        Position(8, 6),    // 备选1
+        Position(12, 7),   // 备选2
+        Position(9, 8)     // 备选3
+    };
+
+    // 检查每个位置是否可通行
+    for (const auto& pos : possiblePositions) {
+        if (isPositionValid(pos) && isPositionWalkable(pos)) {
+            return pos;
+        }
+    }
+
+    // 如果所有预定义位置都不行，随机找一个空地
+    for (int attempts = 0; attempts < 100; attempts++) {
+        int x = rand() % MAP_WIDTH;
+        int y = rand() % MAP_HEIGHT;
+        Position pos(x, y);
+
+        if (isPositionValid(pos) && isPositionWalkable(pos) &&
+            !isPositionOccupiedByEnemy(pos)) {
+            return pos;
+        }
+    }
+
+    // 实在找不到，返回默认位置
+    return Position(10, 5);
+}
+
 // ========== 游戏逻辑 ==========
 
 void GameScene::checkGameStatus() {
     if (playerHealth <= 0) {
         isGameOver = true;
+        showMessage("游戏结束！", 300, RED);
     }
 }
 
@@ -738,7 +941,12 @@ void GameScene::checkEnemyCollision() {
             // 限制最低生命值
             if (playerHealth < 0) playerHealth = 0;
 
-            // 通过公开方法设置冷却/不可再次攻击计时器
+            // 显示受伤消息
+            if (playerHealth > 0) {
+                showMessage("被敌人攻击！生命值-1", 120, RED);
+            }
+
+            // 设置攻击冷却
             enemy->setJustAttackTimer(100);
 
             break;  // 一次只处理一个碰撞
@@ -761,6 +969,7 @@ void GameScene::loadResources() {
 
 void GameScene::unloadResources() {
     // EasyX会自动管理资源
+    // 可以在这里添加自定义的资源清理
 }
 
 void GameScene::createDefaultResources() {
@@ -782,10 +991,10 @@ void GameScene::createDefaultResources() {
         line(0, i, TILE_SIZE, i);
     }
 
-    // 创建默认药水（简化版本）
+    // 创建默认药水
     SetWorkingImage(&healthPotionImg);
     Resize(&healthPotionImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0));  // 透明背景
+    setfillcolor(BLACK);
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(0, 200, 0));
     solidellipse(4, 4, TILE_SIZE - 4, TILE_SIZE - 4);
@@ -793,29 +1002,29 @@ void GameScene::createDefaultResources() {
     // 创建默认金币
     SetWorkingImage(&coinImg);
     Resize(&coinImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0));
+    setfillcolor(BLACK);
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 200, 0));
     solidcircle(TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2 - 4);
 
-    // 创建默认钥匙
+    // 创建默认钥匙（确保明显可见）
     SetWorkingImage(&keyImg);
     Resize(&keyImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0));
+    setfillcolor(RGB(60, 60, 60));  // 浅灰色背景，不是黑色
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 150, 0));
 
-    // 钥匙柄
-    solidrectangle(TILE_SIZE / 4, TILE_SIZE / 2 - 2,
-        TILE_SIZE / 2, TILE_SIZE / 2 + 2);
-    // 钥匙环
-    solidellipse(TILE_SIZE / 2, TILE_SIZE / 2 - 4,
-        TILE_SIZE * 3 / 4, TILE_SIZE / 2 + 4);
+    // 钥匙柄（更粗）
+    solidrectangle(TILE_SIZE / 4 - 2, TILE_SIZE / 2 - 4,
+        TILE_SIZE / 2 + 2, TILE_SIZE / 2 + 4);
+    // 钥匙环（更大）
+    solidellipse(TILE_SIZE / 2 - 2, TILE_SIZE / 2 - 8,
+        TILE_SIZE * 3 / 4 + 2, TILE_SIZE / 2 + 8);
 
     // 创建默认圣剑碎片
     SetWorkingImage(&swordFragmentImg);
     Resize(&swordFragmentImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0));
+    setfillcolor(BLACK);
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 200, 50));
 
@@ -829,10 +1038,15 @@ void GameScene::createDefaultResources() {
     // 创建默认 NPC（森林守护者）
     SetWorkingImage(&npcImg);
     Resize(&npcImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(0, 0, 0));
+    setfillcolor(BLACK);
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(100, 180, 100));
     solidellipse(4, 4, TILE_SIZE - 4, TILE_SIZE - 4);
+
+    // 添加面部特征
+    setfillcolor(WHITE);
+    solidcircle(TILE_SIZE / 2 - 8, TILE_SIZE / 2 - 4, 3);  // 左眼
+    solidcircle(TILE_SIZE / 2 + 8, TILE_SIZE / 2 - 4, 3);  // 右眼
 
     // 恢复工作图像
     SetWorkingImage();
@@ -867,6 +1081,75 @@ bool GameScene::isPositionOccupiedByEnemy(const Position& pos) const {
         }
     }
     return false;
+}
+
+// ========== 消息系统 ==========
+
+void GameScene::showMessage(const std::string& text, int duration, COLORREF color) {
+    GameMessage msg;
+    msg.text = text;
+    msg.duration = duration;
+    msg.timer = duration;
+    msg.color = color;
+    messages.push_back(msg);
+}
+
+void GameScene::updateMessages() {
+    for (auto it = messages.begin(); it != messages.end();) {
+        it->timer--;
+        if (it->timer <= 0) {
+            it = messages.erase(it);
+        }
+        else {
+            ++it;
+        }
+    }
+}
+
+void GameScene::renderMessages() {
+    if (messages.empty()) return;
+
+    int startY = 450;
+    int maxWidth = 600;
+
+    for (const auto& msg : messages) {
+        // 计算透明度（淡入淡出效果）
+        int alpha = 255;
+        if (msg.timer < 30) {
+            alpha = (msg.timer * 255) / 30;  // 淡出
+        }
+        else if (msg.duration - msg.timer < 15) {
+            alpha = ((msg.duration - msg.timer) * 255) / 15;  // 淡入
+        }
+
+        // 计算文字宽度
+        settextstyle(20, 0, _T("宋体"));
+        int textWidth = textwidth(msg.text.c_str());
+
+        // 绘制背景
+        setfillcolor(RGB(0, 0, 0, alpha * 0.7));
+        int padding = 20;
+        solidrectangle(400 - textWidth / 2 - padding, startY - 10,
+            400 + textWidth / 2 + padding, startY + 30);
+
+        // 绘制边框
+        setlinecolor(RGB(218, 165, 32, alpha));
+        setlinestyle(PS_SOLID, 2);
+        rectangle(400 - textWidth / 2 - padding, startY - 10,
+            400 + textWidth / 2 + padding, startY + 30);
+
+        // 绘制文字
+        settextcolor(RGB(
+            GetRValue(msg.color),
+            GetGValue(msg.color),
+            GetBValue(msg.color),
+            alpha
+        ));
+        setbkmode(TRANSPARENT);
+        outtextxy(400 - textWidth / 2, startY, msg.text.c_str());
+
+        startY += 50;
+    }
 }
 
 // ========== UI 绘制 ==========

@@ -54,17 +54,24 @@ struct Position {
     }
 };
 
+// 游戏消息结构
+struct GameMessage {
+    std::string text;
+    int duration;
+    int timer;
+    COLORREF color;
+};
+
 class GameScene : public Scene {
 private:
-
     SceneManager* sceneManager;
 
     // 地图相关
-    static const int GAME_MAP_WIDTH = 20;     // 20列
-    static const int GAME_MAP_HEIGHT = 15;    // 15行
-    static const int GAME_TILE_SIZE = 40;     // 每个格子40像素
+    static const int MAP_WIDTH = 20;     // 20列
+    static const int MAP_HEIGHT = 15;    // 15行
+    static const int TILE_SIZE = 40;     // 每个格子40像素
 
-    TileType map[GAME_MAP_HEIGHT][GAME_MAP_WIDTH];
+    TileType map[MAP_HEIGHT][MAP_WIDTH];
     std::vector<Position> wallPositions;
 
     // 物品相关
@@ -94,19 +101,17 @@ private:
 
     // 资源（图片）
     IMAGE tileWall;
-    IMAGE tileFloor;
-    IMAGE playerImg;
-    IMAGE enemyImg;
     IMAGE healthPotionImg;
     IMAGE coinImg;
     IMAGE keyImg;
     IMAGE swordFragmentImg;
-    IMAGE doorImg;
-    IMAGE exitImg;
     IMAGE npcImg;
 
     // 加载状态
     bool resourcesLoaded;
+
+    // 消息系统
+    std::vector<GameMessage> messages;
 
 public:
     explicit GameScene(SceneManager* manager);
@@ -123,19 +128,14 @@ public:
     bool isPositionWalkable(const Position& pos) const;
 
     // 获取地图尺寸的公共方法
-    int getMapWidth() const { return GAME_MAP_WIDTH; }
-    int getMapHeight() const { return GAME_MAP_HEIGHT; }
-    int getTileSize() const { return GAME_TILE_SIZE; }
+    int getMapWidth() const { return MAP_WIDTH; }
+    int getMapHeight() const { return MAP_HEIGHT; }
+    int getTileSize() const { return TILE_SIZE; }
 
 private:
     // 地图生成
     void generateFirstLevelMap();
     void drawMap();
-
-    // 调整地图大小以适应窗口
-    static const int MAP_WIDTH = 20;    // 改为 20 列
-    static const int MAP_HEIGHT = 15;   // 改为 15 行
-    static const int TILE_SIZE = 40;    // 改为 40 像素，这样 20×40=800, 15×40=600
 
     // 物品管理
     void generateItems();
@@ -149,6 +149,12 @@ private:
     void renderDialogue();
     void endDialogue();
 
+    // NPC 绘制辅助
+    void drawDefaultNPC(int screenX, int screenY);
+    bool isPlayerNearNPC() const;
+    void drawInteractionPrompt(int npcScreenX, int npcScreenY);
+    Position findValidNPCPosition();
+
     // 游戏逻辑
     void checkGameStatus();
     void updateEnemies();
@@ -161,13 +167,16 @@ private:
 
     // 工具函数
     bool isPositionValid(const Position& pos) const;
-   
     bool isPositionOccupiedByEnemy(const Position& pos) const;
+
+    // 消息系统
+    void showMessage(const std::string& text, int duration = 180, COLORREF color = WHITE);
+    void updateMessages();
+    void renderMessages();
 
     // UI 绘制
     void drawUI();
     void drawHealthBar(int x, int y, int width, int height, int current, int max);
-    void drawInventory();
 
     // 对话工具
     void drawTextWithWrap(int x, int y, int width, const std::string& text,
