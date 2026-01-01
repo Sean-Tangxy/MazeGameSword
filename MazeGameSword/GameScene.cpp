@@ -826,26 +826,26 @@ void GameScene::generateThirdLevelMap() {
     }
 
     // 内墙（创建简单的迷宫结构）
-    // 纵向墙
-    for (int y = 2; y < MAP_HEIGHT - 2; y++) {
-        map[y][5] = TileType::WALL;
-        map[y][10] = TileType::WALL;
-        map[y][15] = TileType::WALL;
-    }
+    for (int i = 2; i <= 13; i++) {	map[i][2] = TileType::WALL; }
+    map[2][3] = TileType::WALL; 
+    map[2][4] = TileType::WALL;  map[10][4] = TileType::WALL; map[11][4] = TileType::WALL; map[12][4] = TileType::WALL;
+    map[2][5] = TileType::WALL;  map[4][5] = TileType::WALL; map[5][5] = TileType::WALL; map[6][5] = TileType::WALL; map[10][5] = TileType::WALL; map[12][5] = TileType::WALL;
+	map[4][6] = TileType::WALL;  map[6][6] = TileType::WALL; map[10][6] = TileType::WALL; map[12][6] = TileType::WALL;
+    map[2][7] = TileType::WALL;  map[3][7] = TileType::WALL;  map[4][7] = TileType::WALL; map[6][7] = TileType::WALL; 
+    map[7][7] = TileType::WALL;  map[8][7] = TileType::WALL;  map[9][7] = TileType::WALL;  map[10][7] = TileType::WALL; map[12][7] = TileType::WALL;
+	map[2][8] = TileType::WALL;  map[12][8] = TileType::WALL;
+	map[2][9] = TileType::WALL;  map[4][9] = TileType::WALL; map[5][9] = TileType::WALL; map[6][9] = TileType::WALL; map[8][9] = TileType::WALL; 
+    map[9][9] = TileType::WALL;  map[10][9] = TileType::WALL; map[11][9] = TileType::WALL; map[12][9] = TileType::WALL;
+    map[2][10] = TileType::WALL; map[4][10] = TileType::WALL; map[8][10] = TileType::WALL;
+	map[2][11] = TileType::WALL; map[4][11] = TileType::WALL; map[6][11] = TileType::WALL; map[8][11] = TileType::WALL;
+    map[1][12] = TileType::WALL; map[2][12] = TileType::WALL; map[4][12] = TileType::WALL; map[6][12] = TileType::WALL; map[8][12] = TileType::WALL; 
+    map[10][12] = TileType::WALL; map[11][12] = TileType::WALL; map[12][12] = TileType::WALL; map[13][12] = TileType::WALL;
+    map[2][13] = TileType::WALL; map[4][13] = TileType::WALL; map[6][13] = TileType::WALL; map[8][13] = TileType::WALL; map[10][13] = TileType::WALL;
+    map[2][14] = TileType::WALL; map[4][14] = TileType::WALL; map[6][14] = TileType::WALL; map[8][14] = TileType::WALL; map[10][14] = TileType::WALL;
+	map[2][15] = TileType::WALL; map[4][15] = TileType::WALL; map[6][15] = TileType::WALL; map[10][15] = TileType::WALL;
+    map[2][16] = TileType::WALL; map[4][16] = TileType::WALL; map[6][16] = TileType::WALL; map[10][16] = TileType::WALL;
+	map[2][17] = TileType::WALL; for (int i = 4; i <= 11; i++) { map[i][17] = TileType::WALL; }
 
-    // 横向墙
-    for (int x = 5; x < MAP_WIDTH - 5; x++) {
-        map[3][x] = TileType::WALL;
-        map[7][x] = TileType::WALL;
-        map[11][x] = TileType::WALL;
-    }
-
-    // 创建一些通道
-    map[3][8] = TileType::EMPTY;
-    map[7][12] = TileType::EMPTY;
-    map[11][6] = TileType::EMPTY;
-    map[7][5] = TileType::EMPTY;
-    map[10][15] = TileType::EMPTY;
 
     // 设置出生点
     map[1][1] = TileType::PLAYER_SPAWN;
@@ -1000,16 +1000,16 @@ void GameScene::generateThirdStageItems() {
     items.clear();
 
     // 生成药水
-    items.push_back({ Position(3, 3), ItemType::HEALTH_POTION });
-    items.push_back({ Position(15, 10), ItemType::HEALTH_POTION });
+    items.push_back({ Position(6, 9), ItemType::HEALTH_POTION });
+    items.push_back({ Position(16, 5), ItemType::HEALTH_POTION });
 
     // 生成金币
-    items.push_back({ Position(5, 7), ItemType::COIN });
-    items.push_back({ Position(12, 12), ItemType::COIN });
-    items.push_back({ Position(18, 8), ItemType::COIN });
+    items.push_back({ Position(5, 11), ItemType::COIN });
+    items.push_back({ Position(1, 13), ItemType::COIN });
+    items.push_back({ Position(11, 1), ItemType::COIN });
 
     // 生成钥匙（确保不在墙上）
-    Position keyPos(2, 2);
+    Position keyPos(17, 1);
     if (isPositionWalkable(keyPos)) {
         items.push_back({ keyPos, ItemType::KEY });
     }
@@ -1026,7 +1026,7 @@ void GameScene::generateThirdStageItems() {
 
     // 生成圣剑碎片（如果还没有获得）
     if (!swordFragments[2]) {
-        items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+        items.push_back({ Position(13, 11), ItemType::SWORD_FRAGMENT });
     }
 }
 
@@ -1320,6 +1320,10 @@ void GameScene::drawInteractionPrompt(int npcScreenX, int npcScreenY) {
 }
 
 Position GameScene::findValidNPCPosition() {
+    if (stage == 1) return Position(8, 6);
+	if (stage == 2) return Position(8, 6);
+	if (stage == 3) return Position(6, 5);
+
     // 预定义几个可能的位置
     std::vector<Position> possiblePositions = {
         Position(10, 5),   // 原位置
