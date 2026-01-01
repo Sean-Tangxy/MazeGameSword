@@ -1098,36 +1098,76 @@ void GameScene::initForestGuardianDialogue() {
     currentDialogue.push_back({ "", "她面容慈祥，眼中闪烁着星辰般的光芒。" });
     currentDialogue.push_back({ "森林守护者莉拉娜", "年轻的人之子，我等待你的到来已经很久了。" });
     currentDialogue.push_back({ "艾登", "您是...森林的守护者？我是来寻找圣剑碎片的。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "我知道。我能感受到你血脉中的圣光，也看到了你穿越迷宫时的坚定。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "告诉我，勇者——你为何踏上这危险的道路？" });
-    currentDialogue.push_back({ "艾登", "为了驱散这片黑暗" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "三个答案都是真实的...却又不完整。让我看看你的心吧。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "我能感受到你血脉中的圣光，也看到了你穿越迷宫时的坚定。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "每个来到此处的灵魂都带着目的——完成使命、保护所爱、或驱散黑暗。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "但这些答案都只是枝叶，让我看看你真正的根脉吧。" });
     currentDialogue.push_back({ "", "*莉拉娜轻轻挥手，周围浮现三个光球，每个光球都映出一段回忆：" });
-    currentDialogue.push_back({ "", "艾登在城堡中训练的场景" });
-    currentDialogue.push_back({ "", "村民们被黑暗侵扰的恐惧面容" });
+    currentDialogue.push_back({ "", "艾登在城堡中刻苦训练的场景" });
+    currentDialogue.push_back({ "", "村民们被黑暗侵扰时的恐惧面容" });
     currentDialogue.push_back({ "", "年幼的艾登听祖母讲述圣骑士传说的夜晚*" });
     currentDialogue.push_back({ "森林守护者莉拉娜", "啊...我看到了。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "你的勇气不仅来自责任，更来自那些温暖记忆给予你的力量。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "你没有被黑暗动摇，也没有被恐惧吞噬...这正是圣剑需要的光芒。" });
-    currentDialogue.push_back({ "", "莉拉娜走向圣坛，碎片开始发出更强烈的光芒" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "千百年来，我守护着这片'自然之翠'。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "它蕴含着生命的坚韧与循环之力。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "但最近，我感到森林中的黑暗在蔓延..." });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "这碎片需要新的主人，需要为更伟大的使命而战。" });
-    currentDialogue.push_back({ "", "碎片缓缓飘向艾登" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "接受它吧。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "记住——真正的力量不在于征服，而在于守护生命的意志。" });
-    currentDialogue.push_back({ "森林守护者莉拉娜", "愿森林的坚韧与你同在。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "你的勇气不仅来自责任，更来自那些温暖记忆给予的力量。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "你没有被黑暗动摇，也没有被恐惧吞噬...这很好。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "但圣剑碎片需要的不只是坚定的心，还需要通过守护者的考验。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "如果你准备好了，我将开启'生命回廊'的试炼。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "在那里，你需要证明自己理解'守护'的真意。" });
+    currentDialogue.push_back({ "艾登", "无论什么考验，我都会接受。" });
+    currentDialogue.push_back({ "森林守护者莉拉娜", "那么...愿森林的坚韧与你同在。" });
+    currentDialogue.push_back({ "", "莉拉娜的身影逐渐消散，圣坛上的碎片发出脉动的光芒" });
+    currentDialogue.push_back({ "", "通往生命回廊的入口在圣坛后方缓缓开启..." });
 }
 
 void GameScene::initSkyGuardianDialogue() {
     currentDialogue.clear();
-    // TODO: 实现天空守护者对话
+
+    currentDialogue.push_back({ "", "一位身着星月长袍、背后有半透明羽翼的老者缓缓显现。" });
+    currentDialogue.push_back({ "", "他的眼神深邃，仿佛蕴含着宇宙的秘密。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "穿越风暴与迷雾，抵达此处...人类，你的决心令我惊讶。" });
+    currentDialogue.push_back({ "艾登", "守护者大人，我需要第二块圣剑碎片。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "碎片就在那里，但在此之前，我需要知道一件事。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "千年来，我见过无数追求力量者——他们或为征服，或为荣耀，或为恐惧所驱使。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "站在这里，站在世界之巅，你看到了什么？" });
+    currentDialogue.push_back({ "艾登", "我看到了被黑暗侵蚀的大地...但也看到了那些在黑暗中依然闪烁的微光。" });
+    currentDialogue.push_back({ "艾登", "那是村庄里的灯火，是人们心中的希望，是即使面临绝望也不放弃的勇气。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "..." });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "很多人只看到了黑暗，或只看到了自己的道路。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "但你看到了两者，并且选择为了那些微光而战。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "这值得赞赏，但仍不够。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "'苍穹之蓝'承载着自由与远见之力，它需要的主人必须通过'云端迷途'的试炼。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "在那里，你需要证明自己的视野不会因高度而迷失。" });
+    currentDialogue.push_back({ "艾登", "我从未忘记为何出发，也不会忘记那些仰望星空的人们。" });
+    currentDialogue.push_back({ "天空守护者阿尔泰尔", "那么...愿天空的智慧照亮你的道路。" });
+    currentDialogue.push_back({ "", "阿尔泰尔挥动羽翼，星象仪开始转动" });
+    currentDialogue.push_back({ "", "碎片释放出柔和的光芒，观星台的地面浮现出浮空的阶梯..." });
 }
 
 void GameScene::initRockGuardianDialogue() {
     currentDialogue.clear();
-    // TODO: 实现熔岩守护者对话
+
+    currentDialogue.push_back({ "", "火焰凝聚成人形——一位高大威严、身披熔岩铠甲的火之守护者。" });
+    currentDialogue.push_back({ "", "他的声音低沉如地心震动。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "人类。你踏过了我的领域，证明了你值得站在这里。" });
+    currentDialogue.push_back({ "艾登", "请将最后一块碎片交给我，我需要它合成圣剑对抗魔王。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "魔王？黑暗？那些都是表象。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "让我看看...当一切都消失，当所有理由都不复存在，你依然会选择的道路是什么。" });
+    currentDialogue.push_back({ "", "伊格尼斯突然挥手，周围的景象开始扭曲" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "这是'心火试炼'——你将被剥夺所有记忆，回到最初。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "你会发现自己在一个平凡的村庄，过着平静的生活。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "黑暗从未存在，魔王只是传说，圣剑碎片无人知晓。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "但内心深处，你会感到某种缺失...某种召唤。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "届时，你的选择将揭示最本质的自我。" });
+    currentDialogue.push_back({ "艾登", "我不需要幻象来知道自己的选择。" });
+    currentDialogue.push_back({ "艾登", "即使重来一百次，即使没有任何使命或理由..." });
+    currentDialogue.push_back({ "艾登", "我依然会选择战斗，依然会选择守护，依然会站在这里。" });
+    currentDialogue.push_back({ "艾登", "因为这不是'想要去做'，而是'必须去做'。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "..." });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "一千七百二十三个挑战者中，只有你给出了这个答案。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "其他人都需要经历幻象才能明白...但你早已明白。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "'熔火之红'需要的就是这种本质——超越理由的意志。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "但试炼依然必须进行，因为意志需要在火焰中锻造。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "穿过永恒之火，在祭坛中心证明你的意志不会熔化。" });
+    currentDialogue.push_back({ "熔岩守护者伊格尼斯", "愿熔岩的意志锻造你的决心。" });
+    currentDialogue.push_back({ "", "环绕碎片的火焰分开一条道路，通向燃烧的祭坛深处..." });
 }
 
 void GameScene::startDialogue() {
@@ -1774,7 +1814,8 @@ void GameScene::drawUI() {
     // 绘制操作提示
     settextcolor(RGB(200, 200, 200));
     settextstyle(16, 0, _T("宋体"));
-    outtextxy(20, 560, _T("WASD: 移动  E: 对话  ESC: 菜单"));
+    outtextxy(20, 560, _T("WASD: 移动  E: 对话"));
+    //outtextxy(20, 560, _T("WASD: 移动  E: 对话  ESC: 菜单"));
 }
 
 void GameScene::drawHealthBar(int x, int y, int width, int height, int current, int max) {
