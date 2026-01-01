@@ -25,7 +25,7 @@ public:
     // 获取当前场景类型
     SceneType getCurrentSceneType() const { return currentSceneType; }
 
-    // 新增：获取特定场景的指针
+    // 获取特定场景的指针
     template<typename T>
     T* getScene(SceneType type) {
         auto it = scenes.find(type);

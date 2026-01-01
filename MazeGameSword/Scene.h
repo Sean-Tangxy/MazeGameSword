@@ -7,6 +7,7 @@ enum class SceneType {
     MENU,       // 主菜单
     STORY,      // 剧情
     GAME,       // 游戏关卡
+	BEFORE_BOSS,// Boss前剧情（新增）
     BOSS,       // BOSS战（新增）
     END,        // 结局（更新）
     DEATH,      // 死亡场景

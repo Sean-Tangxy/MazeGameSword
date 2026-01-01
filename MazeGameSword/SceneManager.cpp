@@ -13,13 +13,15 @@ SceneManager::SceneManager() : currentScene(nullptr), currentSceneType(SceneType
     addScene(SceneType::MENU, new MenuScene(this));
     addScene(SceneType::STORY, new StoryScene(this));
     addScene(SceneType::GAME, new GameScene(this));
-    addScene(SceneType::BOSS, new BossFightScene(this));           // 新增
-    addScene(SceneType::END, new AfterBossScene(this));            // 新增，使用END作为AfterBoss
-    // 注意：SummaryScene需要特殊处理，通常从游戏结束后调用
+    addScene(SceneType::BEFORE_BOSS, new BeforeBossScene(this));  // 新增：BOSS前剧情场景
+    addScene(SceneType::BOSS, new BossFightScene(this));
+    addScene(SceneType::END, new AfterBossScene(this));
+    // SummaryScene需要特殊处理，通常从游戏结束后调用
 
-    // 设置初始场景
-    switchTo(SceneType::MENU);//正常流程->调试用
-	//switchTo(SceneType::BOSS);//调试用，直接跳过菜单打BOSS
+    // 设置初始场景（调试时可以选择不同场景）
+    switchTo(SceneType::MENU);                 // 正常流程->菜单开始
+    // switchTo(SceneType::BEFORE_BOSS);       // 调试用，直接测试BOSS前剧情
+    // switchTo(SceneType::BOSS);              // 调试用，直接测试BOSS战
 }
 
 SceneManager::~SceneManager() {
@@ -56,14 +58,3 @@ void SceneManager::render() {
         currentScene->render();
     }
 }
-
-// 新增：获取特定场景的指针（用于数据传递）
-/*template<typename T>
-T* SceneManager::getScene(SceneType type) {
-    auto it = scenes.find(type);
-    if (it != scenes.end()) {
-        return dynamic_cast<T*>(it->second);
-    }
-    return nullptr;
-}*/
-//已经转移到头文件中了

@@ -1,5 +1,5 @@
 // GameScene.cpp
-#include"CommonTypes.h"
+#include "CommonTypes.h"
 #include "GameScene.h"
 #include "SceneManager.h"
 #include <graphics.h>
@@ -19,19 +19,91 @@ class Player {
 private:
     Position position;
     IMAGE* sprite;
+    int health;
+    int maxHealth;
+    int score;
+    bool hasKey;
+    bool swordFragments[3];
 
 public:
-    Player() : sprite(nullptr) {}
-    Player(Position startPos) : position(startPos), sprite(nullptr) {}
+    Player() : sprite(nullptr), health(6), maxHealth(6), score(0), hasKey(false) {
+        for (int i = 0; i < 3; i++) {
+            swordFragments[i] = false;
+        }
+    }
+
+    Player(const PlayerData& data) : sprite(nullptr) {
+        loadFromData(data);
+    }
 
     Position getPosition() const { return position; }
     void setPosition(const Position& pos) { position = pos; }
+
+    int getHealth() const { return health; }
+    int getMaxHealth() const { return maxHealth; }
+    int getScore() const { return score; }
+    bool getHasKey() const { return hasKey; }
+    bool getSwordFragment(int index) const {
+        return (index >= 0 && index < 3) ? swordFragments[index] : false;
+    }
+
+    void setHealth(int h) {
+        health = h;
+        if (health > maxHealth) health = maxHealth;
+        if (health < 0) health = 0;
+    }
+    void setMaxHealth(int mh) { maxHealth = mh; }
+    void addScore(int s) { score += s; }
+    void setHasKey(bool hk) { hasKey = hk; }
+    void setSwordFragment(int index, bool value) {
+        if (index >= 0 && index < 3) swordFragments[index] = value;
+    }
+
+    void addHealth(int amount) {
+        health += amount;
+        if (health > maxHealth) health = maxHealth;
+    }
+
+    void takeDamage(int amount) {
+        health -= amount;
+        if (health < 0) health = 0;
+    }
+
+    void resetPosition(const Position& startPos) {
+        position = startPos;
+    }
 
     void setSprite(IMAGE* img) { sprite = img; }
 
     void move(int dx, int dy) {
         position.x += dx;
         position.y += dy;
+    }
+
+    // 保存玩家数据
+    PlayerData saveToData() const {
+        PlayerData data;
+        data.position = position;
+        data.health = health;
+        data.maxHealth = maxHealth;
+        data.score = score;
+        data.hasKey = hasKey;
+        for (int i = 0; i < 3; i++) {
+            data.swordFragments[i] = swordFragments[i];
+        }
+        return data;
+    }
+
+    // 从数据加载
+    void loadFromData(const PlayerData& data) {
+        position = data.position;
+        health = data.health;
+        maxHealth = data.maxHealth;
+        score = data.score;
+        hasKey = data.hasKey;
+        for (int i = 0; i < 3; i++) {
+            swordFragments[i] = data.swordFragments[i];
+        }
     }
 
     void render(int tileSize) const {
@@ -144,16 +216,17 @@ GameScene::GameScene(SceneManager* manager)
     : sceneManager(manager),
     stage(1),
     player(nullptr),
-    hasKey(false),
     playerHealth(6),
     playerMaxHealth(6),
     score(0),
+    hasKey(false),
     inDialogue(false),
     currentDialogueStep(0),
     isGameOver(false),
     isGameWon(false),
     resourcesLoaded(false),
-    npcType(NPCType::FOREST_GUARDIAN) {
+    npcType(NPCType::FOREST_GUARDIAN),
+    currentWallTile(nullptr) {
 
     // 初始化圣剑碎片
     for (int i = 0; i < 3; i++) {
@@ -174,119 +247,145 @@ GameScene::~GameScene() {
     exit();
 }
 
-void GameScene::enter() {
-    // 重置游戏状态
-    hasKey = false;
-    playerHealth = 6;
-    playerMaxHealth = 6;
-    score = 0;
+// 清理游戏对象
+void GameScene::clearGameObjects() {
+    // 清理敌人
+    for (auto& enemy : enemies) {
+        if (enemy) {
+            delete enemy;
+            enemy = nullptr;
+        }
+    }
+    enemies.clear();
+
+    // 清理玩家
+    if (player) {
+        delete player;
+        player = nullptr;
+    }
+
+    // 清理物品
+    items.clear();
+}
+
+// 更新UI显示数据（从玩家对象同步）
+void GameScene::updatePlayerUI() {
+    if (player) {
+        playerHealth = player->getHealth();
+        playerMaxHealth = player->getMaxHealth();
+        score = player->getScore();
+        hasKey = player->getHasKey();
+        for (int i = 0; i < 3; i++) {
+            swordFragments[i] = player->getSwordFragment(i);
+        }
+    }
+}
+
+// 重置关卡状态（不重置玩家数据）
+void GameScene::resetStageState() {
+    hasKey = false;  // 每关钥匙需要重新获取
     inDialogue = false;
     currentDialogueStep = 0;
     isGameOver = false;
     isGameWon = false;
     messages.clear();
+}
 
-    // 初始化圣剑碎片
-    for (int i = 0; i < 3; i++) {
-        swordFragments[i] = false;
-    }
+void GameScene::enter() {
+    // 重置关卡状态
+    resetStageState();
 
     // 清理旧的游戏对象
-    delete player;
-    player = nullptr;
-
-    for (auto enemy : enemies) {
-        delete enemy;
-    }
-    enemies.clear();
-
-    items.clear();
+    clearGameObjects();
 
     // 加载资源
     loadResources();
 
     // 生成地图
-    generateFirstLevelMap();
-
-    // 生成物品
-    generateFirstStageItems();
-
-    // 初始化玩家
-    player = new Player(Position(1, 1));
-
-    // 初始化敌人
-    enemies.push_back(new Enemy(Position(15, 10)));
-    enemies.push_back(new Enemy(Position(10, 12)));
-
-    // 设置 NPC
-    npcPosition = findValidNPCPosition();
-    npcType = NPCType::FOREST_GUARDIAN;
-    initForestGuardianDialogue();
-
-    // 显示欢迎消息
-    showMessage("第一关：森林迷宫", 180, RGB(100, 255, 100));
-}
-
-void GameScene::initNextStage() {
-    // 清理旧的游戏对象
-//    delete player;
-//    player = nullptr;
-    for (auto enemy : enemies) {
-        delete enemy;
+    if (stage == 1) {
+        generateFirstLevelMap();
     }
-    enemies.clear();
-    items.clear();
-    // 重置游戏状态
-    hasKey = false;
-//    playerHealth = 6;
-//    playerMaxHealth = 6;
-    inDialogue = false;
-    currentDialogueStep = 0;
-    isGameOver = false;
-    isGameWon = false;
-    messages.clear();
-    // 生成新地图
-    if (stage == 2) {
+    else if (stage == 2) {
         generateSecondLevelMap();
-        showMessage("第二关：天空之城", 180, RGB(100, 100, 255));
-        npcType = NPCType::SKY_GUARDIAN;
-        initSkyGuardianDialogue();
-        // 生成物品
-        generateSecondStageItems();
     }
     else if (stage == 3) {
         generateThirdLevelMap();
+    }
+
+    // 生成物品
+    if (stage == 1) {
+        generateFirstStageItems();
+        showMessage("第一关：森林迷宫", 180, RGB(100, 255, 100));
+        npcType = NPCType::FOREST_GUARDIAN;
+        initForestGuardianDialogue();
+    }
+    else if (stage == 2) {
+        generateSecondStageItems();
+        showMessage("第二关：天空之城", 180, RGB(100, 100, 255));
+        npcType = NPCType::SKY_GUARDIAN;
+        initSkyGuardianDialogue();
+    }
+    else if (stage == 3) {
+        generateThirdStageItems();
         showMessage("第三关：岩石洞穴", 180, RGB(255, 100, 100));
         npcType = NPCType::ROCK_GUARDIAN;
         initRockGuardianDialogue();
-        //生成物品
-        generateThirdStageItems();
     }
-    // 初始化玩家
-    player = new Player(Position(1, 1));
+
+    // 初始化玩家（从保存的数据创建）
+    if (player) {
+        delete player;  // 安全删除
+    }
+    player = new Player(playerData);
+    player->resetPosition(Position(1, 1));  // 重置位置到出生点
+
+    // 同步UI数据
+    updatePlayerUI();
+
     // 初始化敌人
     enemies.push_back(new Enemy(Position(15, 10)));
     enemies.push_back(new Enemy(Position(10, 12)));
+
     // 设置 NPC
     npcPosition = findValidNPCPosition();
 }
 
-void GameScene::exit() {
-    // 清理游戏对象-------------------?
-//    delete player;
-//    player = nullptr;
-
-    for (auto enemy : enemies) {
-        delete enemy;
+void GameScene::initNextStage() {
+    // 保存当前玩家数据
+    if (player) {
+        playerData = player->saveToData();
     }
-    enemies.clear();
 
-    // 清理资源
+    // 清理旧的游戏对象
+    clearGameObjects();
+
+    // 增加关卡
+    if (stage < 3) {
+        stage++;
+    }
+
+    // 重置关卡状态
+    resetStageState();
+
+    // 加载新关卡
+    enter();
+}
+
+void GameScene::exit() {
+    // 保存玩家数据
+    if (player) {
+        playerData = player->saveToData();
+    }
+
+    // 清理游戏对象
+    clearGameObjects();
+
+    // 卸载资源
     unloadResources();
 }
 
 void GameScene::update() {
-    if (isGameOver || isGameWon) {
+    if (!player || isGameOver || isGameWon) {
         return;
     }
 
@@ -346,9 +445,9 @@ void GameScene::update() {
         if (!eProcessed) {
             if (isPlayerNearNPC()) {
                 startDialogue();
-                if(stage == 1) showMessage("与森林守护者对话中...", 90);
-                else if(stage == 2) showMessage("与天空守护者对话中...", 90);
-				else if(stage == 3) showMessage("与熔岩守护者对话中...", 90);
+                if (stage == 1) showMessage("与森林守护者对话中...", 90);
+                else if (stage == 2) showMessage("与天空守护者对话中...", 90);
+                else if (stage == 3) showMessage("与熔岩守护者对话中...", 90);
             }
             eProcessed = true;
         }
@@ -391,6 +490,9 @@ void GameScene::update() {
 
     // 更新消息系统
     updateMessages();
+
+    // 同步UI数据
+    updatePlayerUI();
 }
 
 void GameScene::render() {
@@ -407,11 +509,14 @@ void GameScene::render() {
         settextcolor(WHITE);
         settextstyle(24, 0, _T("宋体"));
         outtextxy(320, 320, _T("按R重新开始"));
-        outtextxy(320, 360, _T("按ESC返回菜单")); 
+        outtextxy(320, 360, _T("按ESC返回菜单"));
 
         static bool rProcessed = false;
         if (GetAsyncKeyState('R') & 0x8000) {
             if (!rProcessed) {
+                // 重置玩家数据
+                playerData = PlayerData();
+                stage = 1;
                 sceneManager->switchTo(SceneType::GAME);
                 rProcessed = true;
             }
@@ -424,7 +529,6 @@ void GameScene::render() {
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             if (!escProcessed) {
                 sceneManager->switchTo(SceneType::MENU);
-                // 可以在这里添加返回菜单的逻辑
                 escProcessed = true;
             }
         }
@@ -445,16 +549,22 @@ void GameScene::render() {
         char scoreText[50];
         sprintf_s(scoreText, "得分: %d", score);
         outtextxy(350, 320, scoreText);
-        outtextxy(300, 360, _T("按空格键进入下一关"));   
-		static bool spaceProcessed = false;
+
+        if (stage < 3) {
+            outtextxy(300, 360, _T("按空格键进入下一关"));
+        }
+        else {
+            outtextxy(300, 360, _T("按空格键挑战BOSS"));
+        }
+
+        static bool spaceProcessed = false;
         if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
             if (!spaceProcessed) {
-                if(stage < 3){
-                    stage++;
+                if (stage < 3) {
                     initNextStage();
                 }
                 else {
-                    sceneManager->switchTo(SceneType::BOSS);
+                    sceneManager->switchTo(SceneType::BEFORE_BOSS);
                 }
                 spaceProcessed = true;
             }
@@ -465,11 +575,7 @@ void GameScene::render() {
         return;
     }
 
-    // 绘制地图背景（深灰色）
-    setfillcolor(RGB(40, 40, 40));
-    solidrectangle(0, 0, 800, 600);
-
-    // 绘制地图
+    // 绘制地图（覆盖整个屏幕）
     drawMap();
 
     // 绘制物品
@@ -478,7 +584,15 @@ void GameScene::render() {
         int screenY = item.first.y * TILE_SIZE;
 
         // 确保物品可见：先绘制背景
-        setfillcolor(RGB(40, 40, 40));
+        if (stage == 1) {
+            setfillcolor(RGB(50, 70, 40));  // 森林地板色
+        }
+        else if (stage == 2) {
+            setfillcolor(RGB(180, 200, 220));  // 天空之城地板色
+        }
+        else if (stage == 3) {
+            setfillcolor(RGB(60, 40, 30));  // 洞穴地板色
+        }
         solidrectangle(screenX, screenY, screenX + TILE_SIZE, screenY + TILE_SIZE);
 
         // 绘制物品
@@ -668,8 +782,8 @@ void GameScene::generateSecondLevelMap() {
     map[10][6] = TileType::EMPTY;
     map[7][4] = TileType::EMPTY;
     map[5][6] = TileType::EMPTY;
-	map[9][10] = TileType::EMPTY;
-	map[4][14] = TileType::EMPTY;
+    map[9][10] = TileType::EMPTY;
+    map[4][14] = TileType::EMPTY;
     map[10][17] = TileType::EMPTY;
 
     // 设置出生点
@@ -754,25 +868,35 @@ void GameScene::generateThirdLevelMap() {
 }
 
 void GameScene::drawMap() {
-    // 绘制地板
-    setfillcolor(RGB(50, 50, 50));  // 深灰色地板
-    for (int y = 0; y < MAP_HEIGHT; y++) {
-        for (int x = 0; x < MAP_WIDTH; x++) {
-            if (map[y][x] != TileType::WALL) {
-                solidrectangle(x * TILE_SIZE, y * TILE_SIZE,
-                    (x + 1) * TILE_SIZE, (y + 1) * TILE_SIZE);
-            }
-        }
+    // 绘制整个地图的背景（覆盖整个屏幕）
+    if (stage == 1) {
+        setfillcolor(RGB(50, 70, 40));  // 森林地板色
     }
+    else if (stage == 2) {
+        setfillcolor(RGB(180, 200, 220));  // 天空之城地板色
+    }
+    else if (stage == 3) {
+        setfillcolor(RGB(60, 40, 30));  // 洞穴地板色
+    }
+    solidrectangle(0, 0, 800, 600);
 
-    // 绘制墙
-    if (resourcesLoaded) {
+    // 绘制墙砖（使用当前关卡的墙砖图片）
+    if (resourcesLoaded && currentWallTile && currentWallTile->getwidth() > 0) {
         for (const auto& pos : wallPositions) {
-            putimage(pos.x * TILE_SIZE, pos.y * TILE_SIZE, &tileWall);
+            putimage(pos.x * TILE_SIZE, pos.y * TILE_SIZE, currentWallTile);
         }
     }
     else {
-        setfillcolor(RGB(100, 70, 50));  // 棕色墙
+        // 如果加载失败，使用默认颜色墙砖
+        if (stage == 1) {
+            setfillcolor(RGB(80, 100, 60));  // 森林墙砖色
+        }
+        else if (stage == 2) {
+            setfillcolor(RGB(200, 220, 240));  // 天空之城墙砖色
+        }
+        else if (stage == 3) {
+            setfillcolor(RGB(100, 70, 50));  // 洞穴墙砖色
+        }
         for (const auto& pos : wallPositions) {
             solidrectangle(pos.x * TILE_SIZE, pos.y * TILE_SIZE,
                 (pos.x + 1) * TILE_SIZE, (pos.y + 1) * TILE_SIZE);
@@ -832,8 +956,10 @@ void GameScene::generateFirstStageItems() {
         }
     }
 
-    // 生成圣剑碎片
-    items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+    // 生成圣剑碎片（如果还没有获得）
+    if (!swordFragments[0]) {
+        items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+    }
 }
 
 void GameScene::generateSecondStageItems() {
@@ -864,8 +990,10 @@ void GameScene::generateSecondStageItems() {
         }
     }
 
-    // 生成圣剑碎片
-    items.push_back({ Position(16, 6), ItemType::SWORD_FRAGMENT });
+    // 生成圣剑碎片（如果还没有获得）
+    if (!swordFragments[1]) {
+        items.push_back({ Position(16, 6), ItemType::SWORD_FRAGMENT });
+    }
 }
 
 void GameScene::generateThirdStageItems() {
@@ -896,11 +1024,15 @@ void GameScene::generateThirdStageItems() {
         }
     }
 
-    // 生成圣剑碎片
-    items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+    // 生成圣剑碎片（如果还没有获得）
+    if (!swordFragments[2]) {
+        items.push_back({ Position(14, 4), ItemType::SWORD_FRAGMENT });
+    }
 }
 
 void GameScene::checkItemCollision() {
+    if (!player) return;
+
     Position playerPos = player->getPosition();
 
     auto it = items.begin();
@@ -909,17 +1041,17 @@ void GameScene::checkItemCollision() {
             // 碰撞到物品
             switch (it->second) {
             case ItemType::HEALTH_POTION:
-                playerHealth = min(playerHealth + 1, playerMaxHealth);
+                player->addHealth(1);
                 showMessage("获得生命药水！生命值+1", 120, RGB(0, 255, 0));
                 break;
 
             case ItemType::COIN:
-                score += 100;
+                player->addScore(100);
                 showMessage("获得金币！分数+100", 120, RGB(255, 215, 0));
                 break;
 
             case ItemType::KEY:
-                hasKey = true;
+                player->setHasKey(true);
                 // 移除门
                 for (int y = 0; y < MAP_HEIGHT; y++) {
                     for (int x = 0; x < MAP_WIDTH; x++) {
@@ -932,9 +1064,9 @@ void GameScene::checkItemCollision() {
                 break;
 
             case ItemType::SWORD_FRAGMENT:
-                if (stage == 1) swordFragments[0] = true;  // 第一关获得第一个碎片
-                if (stage == 2) swordFragments[1] = true;  // 第二关获得第一个碎片
-                if (stage == 3) swordFragments[2] = true;  // 第三关获得第一个碎片
+                if (stage == 1) player->setSwordFragment(0, true);  // 第一关获得第一个碎片
+                if (stage == 2) player->setSwordFragment(1, true);  // 第二关获得第一个碎片
+                if (stage == 3) player->setSwordFragment(2, true);  // 第三关获得第一个碎片
                 showMessage("获得圣剑碎片！", 180, RGB(255, 200, 50));
                 break;
             }
@@ -988,12 +1120,14 @@ void GameScene::initForestGuardianDialogue() {
     currentDialogue.push_back({ "森林守护者莉拉娜", "愿森林的坚韧与你同在。" });
 }
 
-void GameScene::initSkyGuardianDialogue(){
+void GameScene::initSkyGuardianDialogue() {
     currentDialogue.clear();
+    // TODO: 实现天空守护者对话
 }
 
-void GameScene::initRockGuardianDialogue(){
+void GameScene::initRockGuardianDialogue() {
     currentDialogue.clear();
+    // TODO: 实现熔岩守护者对话
 }
 
 void GameScene::startDialogue() {
@@ -1012,9 +1146,9 @@ void GameScene::updateDialogue() {
             if (currentDialogueStep >= currentDialogue.size()) {
                 endDialogue();
                 // 对话结束后给予圣剑碎片
-                if (!swordFragments[0]) {
-                    items.push_back({ npcPosition, ItemType::SWORD_FRAGMENT });
-                    showMessage("森林守护者给予你圣剑碎片！", 180, RGB(255, 200, 50));
+                if (player && !player->getSwordFragment(stage - 1)) {
+                    player->setSwordFragment(stage - 1, true);
+                    showMessage("获得圣剑碎片！", 180, RGB(255, 200, 50));
                 }
             }
         }
@@ -1187,6 +1321,8 @@ void GameScene::checkGameStatus() {
 }
 
 void GameScene::updateEnemies() {
+    if (!player) return;
+
     for (auto enemy : enemies) {
         if (enemy->getJustAttackTimer() > 0) continue;
         enemy->update(player->getPosition(), *this);
@@ -1194,6 +1330,8 @@ void GameScene::updateEnemies() {
 }
 
 void GameScene::checkEnemyCollision() {
+    if (!player) return;
+
     Position playerPos = player->getPosition();
 
     for (const auto& enemy : enemies) {
@@ -1202,7 +1340,7 @@ void GameScene::checkEnemyCollision() {
             continue;
         }
         if (playerPos == enemy->getPosition()) {
-            playerHealth--;
+            player->takeDamage(1);
 
             // 击退效果
             Position enemyPos = enemy->getPosition();
@@ -1226,11 +1364,8 @@ void GameScene::checkEnemyCollision() {
 
             player->setPosition(newPos);
 
-            // 限制最低生命值
-            if (playerHealth < 0) playerHealth = 0;
-
             // 显示受伤消息
-            if (playerHealth > 0) {
+            if (player->getHealth() > 0) {
                 showMessage("被敌人攻击！生命值-1", 120, RED);
             }
 
@@ -1244,30 +1379,184 @@ void GameScene::checkEnemyCollision() {
 
 // ========== 资源管理 ==========
 
-void GameScene::loadResources() {
-    // 尝试加载资源文件
-    // 这里可以添加实际的图片加载代码
-    resourcesLoaded = false;  // 暂时设置为false，使用默认图形
+bool GameScene::fileExists(const TCHAR* filename) {
+    DWORD dwAttrib = GetFileAttributes(filename);
+    return (dwAttrib != INVALID_FILE_ATTRIBUTES &&
+        !(dwAttrib & FILE_ATTRIBUTE_DIRECTORY));
+}
 
-    // 如果没有资源，创建默认的
+void GameScene::loadResources() {
+    resourcesLoaded = true;
+
+    // 获取可执行文件路径
+    TCHAR exePath[MAX_PATH];
+    GetModuleFileName(NULL, exePath, MAX_PATH);
+
+    // 去掉文件名，获取目录
+    TCHAR* lastSlash = _tcsrchr(exePath, _T('\\'));
+    if (lastSlash) {
+        *lastSlash = _T('\0');
+    }
+
+    // 构造资源目录
+    TCHAR resourceDir[MAX_PATH];
+    _stprintf_s(resourceDir, _T("%s\\resources"), exePath);
+
+    // 创建资源目录结构
+    CreateDirectory(resourceDir, NULL);
+    CreateDirectory(_T("resources\\tiles"), NULL);
+    CreateDirectory(_T("resources\\characters"), NULL);
+    CreateDirectory(_T("resources\\items"), NULL);
+
+    TCHAR filePath[MAX_PATH];
+    bool allLoaded = true;
+
+    // 1. 加载不同关卡的墙砖
+    _stprintf_s(filePath, _T("%s\\tiles\\wall_stage1.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&tileWallStage1, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    _stprintf_s(filePath, _T("%s\\tiles\\wall_stage2.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&tileWallStage2, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    _stprintf_s(filePath, _T("%s\\tiles\\wall_stage3.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&tileWallStage3, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    // 根据当前关卡设置当前墙砖
+    switch (stage) {
+    case 1:
+        currentWallTile = &tileWallStage1;
+        break;
+    case 2:
+        currentWallTile = &tileWallStage2;
+        break;
+    case 3:
+        currentWallTile = &tileWallStage3;
+        break;
+    default:
+        currentWallTile = &tileWallStage1;
+        break;
+    }
+
+    // 2. 加载生命药水图片
+    _stprintf_s(filePath, _T("%s\\items\\health_potion.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&healthPotionImg, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    // 3. 加载金币图片
+    _stprintf_s(filePath, _T("%s\\items\\coin.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&coinImg, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    // 4. 加载钥匙图片
+    _stprintf_s(filePath, _T("%s\\items\\key.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&keyImg, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    // 5. 加载圣剑碎片图片
+    _stprintf_s(filePath, _T("%s\\items\\sword_fragment.png"), resourceDir);
+    if (fileExists(filePath)) {
+        if (!loadimage(&swordFragmentImg, filePath, TILE_SIZE, TILE_SIZE, true)) {
+            allLoaded = false;
+        }
+    }
+    else {
+        allLoaded = false;
+    }
+
+    // 6. 加载NPC图片（根据不同NPC类型）
+    const TCHAR* npcFile = nullptr;
+    switch (npcType) {
+    case NPCType::FOREST_GUARDIAN:
+        npcFile = _T("forest_guardian.png");
+        break;
+    case NPCType::SKY_GUARDIAN:
+        npcFile = _T("sky_guardian.png");
+        break;
+    case NPCType::ROCK_GUARDIAN:
+        npcFile = _T("rock_guardian.png");
+        break;
+    }
+
+    if (npcFile) {
+        _stprintf_s(filePath, _T("%s\\characters\\%s"), resourceDir, npcFile);
+        if (fileExists(filePath)) {
+            if (!loadimage(&npcImg, filePath, TILE_SIZE, TILE_SIZE, true)) {
+                allLoaded = false;
+            }
+        }
+        else {
+            allLoaded = false;
+        }
+    }
+
+    resourcesLoaded = allLoaded;
+
+    // 如果任何资源加载失败，使用默认资源
     if (!resourcesLoaded) {
+        showMessage("部分资源加载失败，使用默认图形", 180, YELLOW);
         createDefaultResources();
     }
 }
 
 void GameScene::unloadResources() {
     // EasyX会自动管理资源
-    // 可以在这里添加自定义的资源清理
 }
 
 void GameScene::createDefaultResources() {
     // 设置文字背景透明
     setbkmode(TRANSPARENT);
 
-    // 创建默认墙砖
-    SetWorkingImage(&tileWall);
-    Resize(&tileWall, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(80, 60, 40));
+    // 创建默认墙砖（根据关卡不同）
+    SetWorkingImage(&tileWallStage1);
+    Resize(&tileWallStage1, TILE_SIZE, TILE_SIZE);
+    if (stage == 1) {
+        setfillcolor(RGB(80, 100, 60));  // 森林墙砖色
+    }
+    else if (stage == 2) {
+        setfillcolor(RGB(200, 220, 240));  // 天空之城墙砖色
+    }
+    else if (stage == 3) {
+        setfillcolor(RGB(100, 70, 50));  // 洞穴墙砖色
+    }
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
 
     // 设置线条颜色
@@ -1278,6 +1567,10 @@ void GameScene::createDefaultResources() {
     for (int i = 0; i < TILE_SIZE; i += 4) {
         line(0, i, TILE_SIZE, i);
     }
+
+    // 复制到其他关卡的墙砖
+    tileWallStage2 = tileWallStage1;
+    tileWallStage3 = tileWallStage1;
 
     // 创建默认药水
     SetWorkingImage(&healthPotionImg);
@@ -1295,17 +1588,17 @@ void GameScene::createDefaultResources() {
     setfillcolor(RGB(255, 200, 0));
     solidcircle(TILE_SIZE / 2, TILE_SIZE / 2, TILE_SIZE / 2 - 4);
 
-    // 创建默认钥匙（确保明显可见）
+    // 创建默认钥匙
     SetWorkingImage(&keyImg);
     Resize(&keyImg, TILE_SIZE, TILE_SIZE);
-    setfillcolor(RGB(60, 60, 60));  // 浅灰色背景，不是黑色
+    setfillcolor(RGB(60, 60, 60));
     solidrectangle(0, 0, TILE_SIZE, TILE_SIZE);
     setfillcolor(RGB(255, 150, 0));
 
-    // 钥匙柄（更粗）
+    // 钥匙柄
     solidrectangle(TILE_SIZE / 4 - 2, TILE_SIZE / 2 - 4,
         TILE_SIZE / 2 + 2, TILE_SIZE / 2 + 4);
-    // 钥匙环（更大）
+    // 钥匙环
     solidellipse(TILE_SIZE / 2 - 2, TILE_SIZE / 2 - 8,
         TILE_SIZE * 3 / 4 + 2, TILE_SIZE / 2 + 8);
 
@@ -1323,7 +1616,7 @@ void GameScene::createDefaultResources() {
     };
     solidpolygon(triangle, 3);
 
-    // 创建默认 NPC（森林守护者）
+    // 创建默认 NPC
     SetWorkingImage(&npcImg);
     Resize(&npcImg, TILE_SIZE, TILE_SIZE);
     setfillcolor(BLACK);
@@ -1467,11 +1760,16 @@ void GameScene::drawUI() {
 
     // 绘制圣剑碎片状态
     char fragmentText[50];
-	int numSwordFragments = swordFragments[0] ? 1 : 0;
-	numSwordFragments += swordFragments[1] ? 1 : 0;
-	numSwordFragments += swordFragments[2] ? 1 : 0;
+    int numSwordFragments = swordFragments[0] ? 1 : 0;
+    numSwordFragments += swordFragments[1] ? 1 : 0;
+    numSwordFragments += swordFragments[2] ? 1 : 0;
     sprintf_s(fragmentText, "圣剑碎片: %d/3", numSwordFragments);
     outtextxy(600, 80, fragmentText);
+
+    // 绘制关卡信息
+    char stageText[50];
+    sprintf_s(stageText, "关卡: %d/3", stage);
+    outtextxy(600, 110, stageText);
 
     // 绘制操作提示
     settextcolor(RGB(200, 200, 200));

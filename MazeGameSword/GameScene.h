@@ -1,6 +1,6 @@
 // GameScene.h
 #pragma once
-#include"CommonTypes.h"
+#include "CommonTypes.h"
 #include "Scene.h"
 #include <vector>
 #include <string>
@@ -33,8 +33,8 @@ enum class ItemType {
 // NPC 类型
 enum class NPCType {
     FOREST_GUARDIAN,  // 森林守护者
-	SKY_GUARDIAN,     // 天空守护者
-	ROCK_GUARDIAN     // 岩石守护者
+    SKY_GUARDIAN,     // 天空守护者
+    ROCK_GUARDIAN     // 熔岩守护者
 };
 
 // NPC 对话结构
@@ -43,34 +43,27 @@ struct NPCDialogue {
     std::string content;
 };
 
-/*// 地图坐标结构
-struct Position {
-    int x, y;
-    Position(int x = 0, int y = 0) : x(x), y(y) {}
+// 玩家数据（需要跨关卡保存）
+struct PlayerData {
+    Position position;
+    int health;
+    int maxHealth;
+    int score;
+    bool hasKey;
+    bool swordFragments[3];
 
-    bool operator==(const Position& other) const {
-        return x == other.x && y == other.y;
-    }
-
-    bool operator!=(const Position& other) const {
-        return !(*this == other);
+    PlayerData() : position(1, 1), health(6), maxHealth(6), score(0), hasKey(false) {
+        for (int i = 0; i < 3; i++) {
+            swordFragments[i] = false;
+        }
     }
 };
-
-// 游戏消息结构
-struct GameMessage {
-    std::string text;
-    int duration;
-    int timer;
-    COLORREF color;
-};*/
-// 前述部分结构体在CommonTypes.h中已定义
 
 class GameScene : public Scene {
 private:
     SceneManager* sceneManager;
 
-    //游戏阶段
+    // 游戏阶段
     int stage;
 
     // 地图相关
@@ -81,10 +74,14 @@ private:
     TileType map[MAP_HEIGHT][MAP_WIDTH];
     std::vector<Position> wallPositions;
 
+    // 不同关卡的墙砖图片
+    IMAGE tileWallStage1;  // 第一关墙砖
+    IMAGE tileWallStage2;  // 第二关墙砖
+    IMAGE tileWallStage3;  // 第三关墙砖
+    IMAGE* currentWallTile; // 当前使用的墙砖指针
+
     // 物品相关
     std::vector<std::pair<Position, ItemType>> items;
-    bool hasKey;
-    bool swordFragments[3];  // 三个圣剑碎片
 
     // 游戏对象
     Player* player;
@@ -97,17 +94,18 @@ private:
     std::vector<NPCDialogue> currentDialogue;
     size_t currentDialogueStep;
 
-    // UI 状态
+    // UI 状态（从 PlayerData 获取，用于显示）
     int playerHealth;
     int playerMaxHealth;
     int score;
+    bool hasKey;
+    bool swordFragments[3];
 
     // 游戏状态
     bool isGameOver;
     bool isGameWon;
 
     // 资源（图片）
-    IMAGE tileWall;
     IMAGE healthPotionImg;
     IMAGE coinImg;
     IMAGE keyImg;
@@ -119,6 +117,9 @@ private:
 
     // 消息系统
     std::vector<GameMessage> messages;
+
+    // 玩家数据（跨关卡保存）
+    PlayerData playerData;
 
 public:
     explicit GameScene(SceneManager* manager);
@@ -140,7 +141,20 @@ public:
     int getMapHeight() const { return MAP_HEIGHT; }
     int getTileSize() const { return TILE_SIZE; }
 
+    // 获取玩家数据
+    const PlayerData& getPlayerData() const { return playerData; }
+    void setPlayerData(const PlayerData& data) { playerData = data; updatePlayerUI(); }
+
 private:
+    // 内存管理
+    void clearGameObjects();
+
+    // 更新UI显示数据
+    void updatePlayerUI();
+
+    // 重置关卡状态（不重置玩家数据）
+    void resetStageState();
+
     // 地图生成
     void generateFirstLevelMap();
     void generateSecondLevelMap();
@@ -178,6 +192,7 @@ private:
     void loadResources();
     void unloadResources();
     void createDefaultResources();
+    bool fileExists(const TCHAR* filename);
 
     // 工具函数
     bool isPositionValid(const Position& pos) const;

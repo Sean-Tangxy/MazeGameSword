@@ -1,4 +1,4 @@
-// BeforeBossScene.h
+// BeforeBossScene.h - BOSS前剧情场景
 #pragma once
 #include "Scene.h"
 #include <graphics.h>
@@ -39,9 +39,9 @@ private:
     size_t currentStep;
 
     // 图片资源
-    IMAGE bgImg;            // 背景图片
-    IMAGE leftImg;          // 左侧角色立绘
-    IMAGE rightImg;         // 右侧角色立绘
+    IMAGE* bgImg;            // 背景图片（改为指针）
+    IMAGE* leftImg;          // 左侧角色立绘（改为指针）
+    IMAGE* rightImg;         // 右侧角色立绘（改为指针）
 
     // 图片加载状态
     bool bgLoaded;
@@ -81,6 +81,10 @@ private:
     void loadCurrentImages();
     void unloadImages();
     void createDefaultImages();
+    bool tryLoadImage(const std::string& path, IMAGE** img, int width = 0, int height = 0);
+
+    // 安全释放图像资源
+    void safeDeleteImage(IMAGE* img);
 
     // 文本处理
     void startTextDisplay(const std::string& text);

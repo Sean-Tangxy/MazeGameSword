@@ -1,7 +1,6 @@
-// BeforeBossScene.cpp
+// BeforeBossScene.cpp - BOSS前剧情场景（修复版）
 #include "BeforeBossScene.h"
 #include "SceneManager.h"
-#include "GameScene.h"
 #include <graphics.h>
 #include <conio.h>
 #include <string>
@@ -9,12 +8,29 @@
 #include <windows.h>
 #include <sstream>
 #include <fstream>
+#include <direct.h>  // 用于获取当前目录
 
 using namespace std;
+
+// 安全释放图像资源
+void BeforeBossScene::safeDeleteImage(IMAGE* img) {
+    if (img != nullptr) {
+        // 检查图像是否有有效数据
+        if (img->getwidth() > 0 || img->getheight() > 0) {
+            // 创建空图像并交换
+            IMAGE emptyImg;
+            *img = emptyImg;
+        }
+        delete img;
+    }
+}
 
 // 构造函数
 BeforeBossScene::BeforeBossScene(SceneManager* manager)
     : sceneManager(manager),
+    bgImg(nullptr),
+    leftImg(nullptr),
+    rightImg(nullptr),
     currentStep(0),
     bgLoaded(false),
     leftLoaded(false),
@@ -37,6 +53,14 @@ BeforeBossScene::~BeforeBossScene() {
 
 // 进入场景
 void BeforeBossScene::enter() {
+    // 清理旧资源
+    unloadImages();
+
+    // 创建新的图像对象
+    bgImg = new IMAGE();
+    leftImg = new IMAGE();
+    rightImg = new IMAGE();
+
     // 初始化为全黑淡入
     alphaValue = 255;
     isFading = true;
@@ -51,7 +75,13 @@ void BeforeBossScene::enter() {
     currentStep = 0;
 
     // 加载第一幕的图片
-    loadCurrentImages();
+    try {
+        loadCurrentImages();
+    }
+    catch (...) {
+        // 加载失败，创建默认图片
+        createDefaultImages();
+    }
 }
 
 // 退出场景
@@ -109,10 +139,62 @@ void BeforeBossScene::initStorySteps() {
     steps.push_back(step4);
 }
 
+// 尝试加载图片的辅助函数
+bool BeforeBossScene::tryLoadImage(const std::string& path, IMAGE** img, int width, int height) {
+    if (path.empty() || img == nullptr) return false;
+
+    // 检查文件是否存在
+    ifstream file(path.c_str());
+    if (!file.good()) {
+        // 尝试在当前目录下查找
+        char buffer[256];
+        _getcwd(buffer, 256);
+        std::string currentDir = buffer;
+        std::string fullPath = currentDir + "\\" + path;
+
+        file.open(fullPath.c_str());
+        if (!file.good()) {
+            return false;
+        }
+    }
+    file.close();
+
+    // 清理旧图像
+    safeDeleteImage(*img);
+    *img = new IMAGE();
+
+    // 尝试加载图片
+    try {
+        if (width > 0 && height > 0) {
+            if (loadimage(*img, path.c_str(), width, height)) {
+                return true;
+            }
+        }
+        else {
+            if (loadimage(*img, path.c_str())) {
+                return true;
+            }
+        }
+    }
+    catch (...) {
+        // 加载失败，清理资源
+        safeDeleteImage(*img);
+        *img = nullptr;
+        return false;
+    }
+
+    // 加载失败，清理资源
+    safeDeleteImage(*img);
+    *img = nullptr;
+    return false;
+}
+
 // 加载当前步骤的图片
 void BeforeBossScene::loadCurrentImages() {
-    // 先卸载之前的图片
-    unloadImages();
+    // 重置加载状态
+    bgLoaded = false;
+    leftLoaded = false;
+    rightLoaded = false;
 
     if (currentStep >= steps.size()) return;
 
@@ -120,138 +202,100 @@ void BeforeBossScene::loadCurrentImages() {
 
     if (step.type == BossStoryStepType::DIALOGUE) {
         // 尝试加载背景图片
-        if (!step.background.empty()) {
-            // 检查文件是否存在
-            ifstream file(step.background);
-            if (file.good()) {
-                file.close();
-                loadimage(&bgImg, step.background.c_str(), 800, 600);
+        if (!step.background.empty() && bgImg != nullptr) {
+            if (tryLoadImage(step.background, &bgImg, 800, 600)) {
                 bgLoaded = true;
-            }
-            else {
-                createDefaultImages();
             }
         }
 
         // 尝试加载左侧立绘
-        if (!step.leftImage.empty()) {
-            ifstream file(step.leftImage);
-            if (file.good()) {
-                file.close();
-                loadimage(&leftImg, step.leftImage.c_str());
+        if (!step.leftImage.empty() && leftImg != nullptr) {
+            if (tryLoadImage(step.leftImage, &leftImg)) {
                 leftLoaded = true;
             }
         }
 
         // 尝试加载右侧立绘
-        if (!step.rightImage.empty()) {
-            ifstream file(step.rightImage);
-            if (file.good()) {
-                file.close();
-                loadimage(&rightImg, step.rightImage.c_str());
+        if (!step.rightImage.empty() && rightImg != nullptr) {
+            if (tryLoadImage(step.rightImage, &rightImg)) {
                 rightLoaded = true;
             }
+        }
+
+        // 如果有任何图片加载失败，创建默认图片
+        if (!bgLoaded || !leftLoaded || !rightLoaded) {
+            createDefaultImages();
         }
     }
 }
 
-// 创建默认图片
+// 创建默认图片 - 修复版
 void BeforeBossScene::createDefaultImages() {
-    // 创建默认黑暗王座背景
-    SetWorkingImage(&bgImg);
-    Resize(NULL, 800, 600);
+    // 清理旧图像
+    safeDeleteImage(bgImg);
+    safeDeleteImage(leftImg);
+    safeDeleteImage(rightImg);
 
-    // 绘制黑暗王座背景
-    // 深色背景
-    for (int i = 0; i < 600; i++) {
-        int r = 10 + i * 5 / 600;
-        int g = 10 + i * 3 / 600;
-        int b = 20 + i * 2 / 600;
+    // 创建新图像
+    bgImg = new IMAGE();
+    leftImg = new IMAGE();
+    rightImg = new IMAGE();
+
+    // 1. 创建默认背景
+    Resize(bgImg, 800, 600);
+    SetWorkingImage(bgImg);
+
+    // 绘制简单的渐变色背景
+    for (int y = 0; y < 600; y++) {
+        int r = 10 + y * 5 / 600;
+        int g = 10 + y * 3 / 600;
+        int b = 20 + y * 2 / 600;
         setlinecolor(RGB(r, g, b));
-        line(0, i, 800, i);
+        line(0, y, 800, y);
     }
 
-    // 绘制王座
+    // 简单的王座
     setfillcolor(RGB(40, 40, 40));
     solidrectangle(300, 100, 500, 400);
 
-    // 绘制装饰
-    setfillcolor(RGB(80, 0, 0));
-    solidrectangle(320, 120, 480, 380);
-
-    // 绘制窗户（彩色玻璃效果）
-    setfillcolor(RGB(100, 0, 100, 150));
-    solidrectangle(100, 150, 250, 350);
-    setfillcolor(RGB(0, 0, 100, 150));
-    solidrectangle(550, 150, 700, 350);
-
-    SetWorkingImage();
+    SetWorkingImage();  // 恢复工作图像
     bgLoaded = true;
 
-    // 创建默认角色立绘
-    if (!leftLoaded) {
-        SetWorkingImage(&leftImg);
-        Resize(NULL, 250, 350);
-        setfillcolor(RGB(30, 60, 150));  // 蓝色盔甲
-        solidrectangle(0, 0, 250, 350);
+    // 2. 创建默认左侧立绘
+    Resize(leftImg, 250, 350);
+    SetWorkingImage(leftImg);
 
-        // 绘制战斗状态艾登
-        setfillcolor(RGB(200, 180, 150));  // 肤色
-        solidellipse(75, 50, 175, 150);   // 头部
+    // 绘制简单的蓝色矩形代表艾登
+    setfillcolor(RGB(30, 60, 150));
+    solidrectangle(0, 0, 250, 350);
 
-        setfillcolor(RGB(255, 215, 0));    // 金色头发
-        solidrectangle(60, 60, 190, 100);
+    SetWorkingImage();  // 恢复工作图像
+    leftLoaded = true;
 
-        // 战斗表情
-        setlinecolor(RGB(255, 255, 255));
-        setlinestyle(PS_SOLID, 3);
-        line(100, 120, 120, 120);          // 左眼
-        line(150, 120, 170, 120);          // 右眼
+    // 3. 创建默认右侧立绘
+    Resize(rightImg, 300, 400);
+    SetWorkingImage(rightImg);
 
-        // 坚毅的嘴巴
-        line(130, 160, 140, 160);
+    // 绘制简单的紫色矩形代表魔王
+    setfillcolor(RGB(50, 0, 50));
+    solidrectangle(0, 0, 300, 400);
 
-        // 盔甲细节
-        setfillcolor(RGB(0, 100, 200));
-        solidrectangle(80, 180, 170, 300);  // 胸甲
-
-        SetWorkingImage();
-        leftLoaded = true;
-    }
-
-    if (!rightLoaded) {
-        SetWorkingImage(&rightImg);
-        Resize(NULL, 300, 400);
-        setfillcolor(RGB(50, 0, 50));      // 深紫色长袍
-        solidrectangle(0, 0, 300, 400);
-
-        // 绘制魔王
-        setfillcolor(RGB(100, 100, 150));  // 灰色皮肤
-        solidellipse(100, 50, 200, 150);   // 头部
-
-        // 魔王角
-        setfillcolor(RGB(80, 40, 20));
-        solidrectangle(80, 30, 120, 70);
-        solidrectangle(180, 30, 220, 70);
-
-        // 红色眼睛
-        setfillcolor(RGB(255, 0, 0));
-        solidcircle(130, 100, 8);
-        solidcircle(170, 100, 8);
-
-        // 邪恶笑容
-        setlinecolor(RGB(255, 100, 100));
-        setlinestyle(PS_SOLID, 3);
-        arc(140, 140, 160, 160, 0, 3.14);
-
-        SetWorkingImage();
-        rightLoaded = true;
-    }
+    SetWorkingImage();  // 恢复工作图像
+    rightLoaded = true;
 }
 
 // 卸载图片资源
 void BeforeBossScene::unloadImages() {
-    // EasyX会自动管理IMAGE对象的释放
+    // 安全释放所有图像资源
+    safeDeleteImage(bgImg);
+    safeDeleteImage(leftImg);
+    safeDeleteImage(rightImg);
+
+    bgImg = nullptr;
+    leftImg = nullptr;
+    rightImg = nullptr;
+
+    // 清除加载状态
     bgLoaded = false;
     leftLoaded = false;
     rightLoaded = false;
@@ -285,6 +329,12 @@ void BeforeBossScene::updateTextDisplay() {
 void BeforeBossScene::update() {
     // 如果请求跳过，直接进入Boss战
     if (skipRequested) {
+        sceneManager->switchTo(SceneType::BOSS);
+        return;
+    }
+
+    // 检查步骤索引有效性
+    if (currentStep >= steps.size()) {
         sceneManager->switchTo(SceneType::BOSS);
         return;
     }
@@ -375,8 +425,8 @@ void BeforeBossScene::drawDialogueScene() {
     cleardevice();
 
     // 绘制背景
-    if (bgLoaded) {
-        putimage(0, 0, &bgImg);
+    if (bgLoaded && bgImg != nullptr && bgImg->getwidth() > 0) {
+        putimage(0, 0, bgImg);
     }
     else {
         // 如果没有背景，绘制默认颜色
@@ -388,10 +438,10 @@ void BeforeBossScene::drawDialogueScene() {
     const BossStoryStep& step = steps[currentStep];
 
     // 左侧立绘（艾登）
-    if (leftLoaded) {
+    if (leftLoaded && leftImg != nullptr && leftImg->getwidth() > 0) {
         int leftX = 50;
         int leftY = 200;
-        putimage(leftX, leftY, &leftImg);
+        putimage(leftX, leftY, leftImg);
 
         // 绘制角色名字标签
         setfillcolor(RGB(0, 0, 0, 180));
@@ -399,18 +449,32 @@ void BeforeBossScene::drawDialogueScene() {
         drawTextWithShadow(leftX + 10, leftY - 35, "艾登",
             RGB(135, 206, 235), RGB(0, 0, 0), 20, L"楷体");
     }
+    else {
+        // 如果没有立绘，绘制默认的艾登
+        int leftX = 50;
+        int leftY = 200;
+        setfillcolor(RGB(30, 60, 150));
+        solidrectangle(leftX, leftY, leftX + 250, leftY + 350);
+    }
 
     // 右侧立绘（魔王）
-    if (rightLoaded) {
+    if (rightLoaded && rightImg != nullptr && rightImg->getwidth() > 0) {
         int rightX = 800 - 50 - 300;
         int rightY = 180;
-        putimage(rightX, rightY, &rightImg);
+        putimage(rightX, rightY, rightImg);
 
         // 绘制角色名字标签
         setfillcolor(RGB(0, 0, 0, 180));
         solidrectangle(rightX, rightY - 40, rightX + 200, rightY - 10);
         drawTextWithShadow(rightX + 10, rightY - 35, "卡奥斯",
             RGB(255, 0, 0), RGB(0, 0, 0), 20, L"楷体");
+    }
+    else {
+        // 如果没有立绘，绘制默认的魔王
+        int rightX = 800 - 50 - 300;
+        int rightY = 180;
+        setfillcolor(RGB(50, 0, 50));
+        solidrectangle(rightX, rightY, rightX + 300, rightY + 400);
     }
 
     // 绘制对话框
@@ -473,6 +537,12 @@ void BeforeBossScene::startFade(bool isFadeIn) {
 
 // 更新淡入淡出效果
 void BeforeBossScene::updateFade() {
+    // 安全检查：确保步骤索引有效
+    if (currentStep >= steps.size()) {
+        sceneManager->switchTo(SceneType::BOSS);
+        return;
+    }
+
     if (fadeIn) {
         alphaValue -= 8;  // 淡入速度
         if (alphaValue <= 0) {
@@ -483,10 +553,14 @@ void BeforeBossScene::updateFade() {
             if (currentStep < steps.size()) {
                 const BossStoryStep& step = steps[currentStep];
                 if (step.type == BossStoryStepType::TEXT_ONLY) {
-                    startTextDisplay(step.text);
+                    if (!step.text.empty()) {
+                        startTextDisplay(step.text);
+                    }
                 }
                 else if (step.type == BossStoryStepType::DIALOGUE) {
-                    startTextDisplay(step.dialogue.content);
+                    if (!step.dialogue.content.empty()) {
+                        startTextDisplay(step.dialogue.content);
+                    }
                 }
             }
         }
@@ -500,10 +574,14 @@ void BeforeBossScene::updateFade() {
             // 淡出结束后切换到下一步
             currentStep++;
             if (currentStep < steps.size()) {
-                // 加载新图片
-                loadCurrentImages();
-                // 开始淡入
-                startFade(true);
+                try {
+                    loadCurrentImages();
+                    startFade(true);
+                }
+                catch (...) {
+                    // 加载失败，直接进入Boss战
+                    sceneManager->switchTo(SceneType::BOSS);
+                }
             }
             else {
                 // 剧情结束，切换到Boss战
