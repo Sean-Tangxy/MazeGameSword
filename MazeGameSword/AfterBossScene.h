@@ -125,4 +125,7 @@ private:
     void drawCenteredText(int y, const std::string& text,
         COLORREF color = WHITE, int fontSize = 36,
         const wchar_t* fontName = L"¿¬Ìå");
+
+    // ¸¨Öúº¯Êý
+    bool fileExists(const std::string& filename);
 };

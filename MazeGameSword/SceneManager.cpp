@@ -22,6 +22,7 @@ SceneManager::SceneManager() : currentScene(nullptr), currentSceneType(SceneType
     switchTo(SceneType::MENU);                 // 正常流程->菜单开始
     // switchTo(SceneType::BEFORE_BOSS);       // 调试用，直接测试BOSS前剧情
     // switchTo(SceneType::BOSS);              // 调试用，直接测试BOSS战
+	//switchTo(SceneType::END);           //调试用，直接测试结局场景
 }
 
 SceneManager::~SceneManager() {

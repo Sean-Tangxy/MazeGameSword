@@ -1,5 +1,4 @@
-﻿// AfterBossScene.cpp
-#include "AfterBossScene.h"
+﻿#include "AfterBossScene.h"
 #include "SceneManager.h"
 #include <graphics.h>
 #include <conio.h>
@@ -8,8 +7,15 @@
 #include <windows.h>
 #include <sstream>
 #include <fstream>
+#include <io.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
-using namespace std;
+// 辅助函数：检查文件是否存在
+bool AfterBossScene::fileExists(const std::string& filename) {
+    struct _stat64i32 buffer;
+    return (_stat(filename.c_str(), &buffer) == 0);
+}
 
 // 构造函数
 AfterBossScene::AfterBossScene(SceneManager* manager)
@@ -57,8 +63,19 @@ void AfterBossScene::enter() {
     lastTextTime = GetTickCount();
     skipRequested = false;
 
+    // 重置图片加载状态
+    bgLoaded = false;
+    leftLoaded = false;
+    rightLoaded = false;
+
     // 加载第一幕的图片
-    loadCurrentImages();
+    if (!steps.empty()) {
+        loadCurrentImages();
+        // 开始显示文本
+        if (steps[currentStep].type == AfterBossStepType::TEXT_ONLY) {
+            startTextDisplay(steps[currentStep].text);
+        }
+    }
 }
 
 // 退出场景
@@ -183,40 +200,57 @@ void AfterBossScene::loadCurrentImages() {
     if (step.type == AfterBossStepType::IMAGE_SCENE ||
         step.type == AfterBossStepType::DIALOGUE) {
 
+        bool needDefault = false;
+
         // 尝试加载背景图片
-        if (!step.background.empty()) {
-            ifstream file(step.background);
-            if (file.good()) {
-                file.close();
+        if (!step.background.empty() && fileExists(step.background)) {
+            try {
                 loadimage(&bgImg, step.background.c_str(), 800, 600);
                 bgLoaded = true;
             }
-            else {
-                createDefaultImages();
+            catch (...) {
+                // 如果加载失败，创建默认图片
+                needDefault = true;
             }
+        }
+        else {
+            needDefault = true;
         }
 
         // 对话场景需要加载立绘
         if (step.type == AfterBossStepType::DIALOGUE) {
             // 尝试加载左侧立绘
-            if (!step.leftImage.empty()) {
-                ifstream file(step.leftImage);
-                if (file.good()) {
-                    file.close();
+            if (!step.leftImage.empty() && fileExists(step.leftImage)) {
+                try {
                     loadimage(&leftImg, step.leftImage.c_str());
                     leftLoaded = true;
                 }
+                catch (...) {
+                    needDefault = true;
+                }
+            }
+            else {
+                needDefault = true;
             }
 
             // 尝试加载右侧立绘
-            if (!step.rightImage.empty()) {
-                ifstream file(step.rightImage);
-                if (file.good()) {
-                    file.close();
+            if (!step.rightImage.empty() && fileExists(step.rightImage)) {
+                try {
                     loadimage(&rightImg, step.rightImage.c_str());
                     rightLoaded = true;
                 }
+                catch (...) {
+                    needDefault = true;
+                }
             }
+            else {
+                needDefault = true;
+            }
+        }
+
+        // 如果需要默认图片，创建它们
+        if (needDefault) {
+            createDefaultImages();
         }
     }
 }
@@ -224,85 +258,97 @@ void AfterBossScene::loadCurrentImages() {
 // 创建默认图片
 void AfterBossScene::createDefaultImages() {
     // 创建默认胜利背景
-    SetWorkingImage(&bgImg);
-    Resize(NULL, 800, 600);
+    if (!bgLoaded) {
+        bgImg = IMAGE(800, 600);
+        SetWorkingImage(&bgImg);
 
-    // 绘制金色胜利背景
-    for (int i = 0; i < 600; i++) {
-        int r = 255 - i * 100 / 600;
-        int g = 215 - i * 100 / 600;
-        int b = 0 + i * 50 / 600;
-        setlinecolor(RGB(r, g, b));
-        line(0, i, 800, i);
+        // 绘制渐变金色背景
+        for (int i = 0; i < 600; i++) {
+            int r = 255 - i * 100 / 600;
+            int g = 215 - i * 100 / 600;
+            int b = 0 + i * 50 / 600;
+            setlinecolor(RGB(r, g, b));
+            line(0, i, 800, i);
+        }
+
+        // 绘制阳光光芒
+        setlinestyle(PS_SOLID, 15);
+        setlinecolor(RGB(255, 255, 150));
+        for (int i = 0; i < 8; i++) {
+            double angle = i * 45 * 3.14159 / 180.0;
+            int length = 300;
+            int centerX = 400, centerY = 300;
+            int endX = centerX + static_cast<int>(cos(angle) * length);
+            int endY = centerY + static_cast<int>(sin(angle) * length);
+            line(centerX, centerY, endX, endY);
+        }
+
+        // 绘制城堡
+        setlinestyle(PS_SOLID, 1);
+        setfillcolor(RGB(150, 100, 50));
+        solidrectangle(300, 200, 500, 400);
+
+        // 绘制城堡顶部
+        POINT roof[3] = { {300, 200}, {400, 100}, {500, 200} };
+        setfillcolor(RGB(100, 70, 40));
+        solidpolygon(roof, 3);
+
+        // 绘制旗帜
+        setfillcolor(RGB(255, 0, 0));
+        solidrectangle(390, 150, 410, 200);
+        setfillcolor(RGB(255, 255, 255));
+        solidrectangle(395, 155, 405, 195);
+
+        SetWorkingImage(NULL);
+        bgLoaded = true;
     }
-
-    // 绘制阳光
-    setfillcolor(RGB(255, 255, 200, 100));
-    for (int i = 0; i < 8; i++) {
-        int angle = i * 45;
-        int length = 300;
-        int centerX = 400, centerY = 300;
-
-        int endX = centerX + static_cast<int>(cos(angle * 3.14159 / 180) * length);
-        int endY = centerY + static_cast<int>(sin(angle * 3.14159 / 180) * length);
-
-        setlinestyle(PS_SOLID, 20);
-        setlinecolor(RGB(255, 255, 150, 80));
-        line(centerX, centerY, endX, endY);
-    }
-
-    // 绘制城堡轮廓
-    setfillcolor(RGB(150, 100, 50));
-    solidrectangle(300, 200, 500, 400);
-
-    // 绘制旗帜
-    setfillcolor(RGB(255, 0, 0));
-    solidrectangle(390, 150, 410, 200);
-    setfillcolor(RGB(255, 255, 255));
-    solidrectangle(395, 155, 405, 195);
-
-    SetWorkingImage();
-    bgLoaded = true;
 
     // 创建默认荣誉版艾登立绘
-    if (!leftLoaded) {
+    if (!leftLoaded && (steps[currentStep].type == AfterBossStepType::DIALOGUE)) {
+        leftImg = IMAGE(250, 350);
         SetWorkingImage(&leftImg);
-        Resize(NULL, 250, 350);
-        setfillcolor(RGB(218, 165, 32));  // 金色盔甲
+
+        // 金色盔甲背景
+        setfillcolor(RGB(218, 165, 32));
         solidrectangle(0, 0, 250, 350);
 
-        // 绘制荣誉服装
-        setfillcolor(RGB(255, 255, 255));  // 白色披风
+        // 白色披风
+        setfillcolor(RGB(255, 255, 255));
         solidrectangle(50, 100, 200, 300);
 
-        setfillcolor(RGB(200, 180, 150));  // 肤色
-        solidellipse(75, 50, 175, 150);   // 头部
+        // 头部
+        setfillcolor(RGB(200, 180, 150));
+        solidellipse(75, 50, 175, 150);
 
-        setfillcolor(RGB(255, 215, 0));    // 金色头发
+        // 金色头发
+        setfillcolor(RGB(255, 215, 0));
         solidrectangle(60, 60, 190, 100);
 
-        // 微笑表情
+        // 眼睛
         setlinecolor(RGB(0, 0, 0));
         setlinestyle(PS_SOLID, 3);
-        line(100, 120, 120, 120);          // 左眼
-        line(150, 120, 170, 120);          // 右眼
+        line(100, 120, 120, 120);  // 左眼
+        line(150, 120, 170, 120);  // 右眼
 
         // 微笑的嘴巴
-        arc(130, 150, 140, 160, 0, 180);
+        arc(130, 140, 150, 160, 0, 180);
 
-        SetWorkingImage();
+        SetWorkingImage(NULL);
         leftLoaded = true;
     }
 
-    if (!rightLoaded) {
+    // 创建默认国王立绘
+    if (!rightLoaded && (steps[currentStep].type == AfterBossStepType::DIALOGUE)) {
+        rightImg = IMAGE(250, 350);
         SetWorkingImage(&rightImg);
-        Resize(NULL, 250, 350);
-        setfillcolor(RGB(139, 69, 19));    // 棕色国王袍
+
+        // 棕色国王袍
+        setfillcolor(RGB(139, 69, 19));
         solidrectangle(0, 0, 250, 350);
 
-        // 绘制国王
-        setfillcolor(RGB(200, 180, 150));  // 肤色
-        solidellipse(75, 50, 175, 150);   // 头部
+        // 头部
+        setfillcolor(RGB(200, 180, 150));
+        solidellipse(75, 50, 175, 150);
 
         // 王冠
         setfillcolor(RGB(255, 215, 0));
@@ -313,22 +359,24 @@ void AfterBossScene::createDefaultImages() {
         };
         solidpolygon(crown, 7);
 
-        // 喜悦表情
+        // 喜悦的眼睛
         setlinecolor(RGB(0, 0, 0));
         setlinestyle(PS_SOLID, 3);
-        line(100, 120, 110, 130);          // 左眼（眯起）
-        line(150, 120, 160, 130);          // 右眼（眯起）
+        line(100, 120, 110, 130);  // 左眼
+        line(150, 120, 160, 130);  // 右眼
 
         // 大笑的嘴巴
-        arc(120, 160, 160, 180, 180, 360);
+        arc(120, 150, 160, 170, 180, 360);
 
-        SetWorkingImage();
+        SetWorkingImage(NULL);
         rightLoaded = true;
     }
 }
 
 // 卸载图片资源
 void AfterBossScene::unloadImages() {
+    // EasyX 会自动管理 IMAGE 对象的资源
+    // 这里只需要重置加载状态
     bgLoaded = false;
     leftLoaded = false;
     rightLoaded = false;
@@ -347,7 +395,7 @@ void AfterBossScene::updateTextDisplay() {
     if (textFinished || skipRequested) return;
 
     DWORD currentTime = GetTickCount();
-    if (currentTime - lastTextTime > 40) { // 40ms显示一个字，稍慢一些
+    if (currentTime - lastTextTime > 40) { // 40ms显示一个字
         if (textCharIndex < currentText.length()) {
             textCharIndex++;
             lastTextTime = currentTime;
@@ -397,41 +445,46 @@ void AfterBossScene::render() {
     // 先清后台缓冲区
     cleardevice();
 
-    // 绘制淡入淡出效果
-    if (isFading) {
-        drawFadeEffect();
-        return;
-    }
-
     if (currentStep >= steps.size()) {
-        // 所有步骤结束
-        sceneManager->switchTo(SceneType::MENU);
+        // 所有步骤结束，返回菜单
+        setbkcolor(BLACK);
+        cleardevice();
+        drawCenteredText(250, "故事结束", RGB(255, 215, 0), 48);
+        drawCenteredText(350, "按任意键返回菜单", RGB(200, 200, 200), 24);
         return;
     }
 
     const AfterBossStep& step = steps[currentStep];
 
-    switch (step.type) {
-    case AfterBossStepType::TEXT_ONLY:
-        drawTextOnlyScene();
-        break;
-    case AfterBossStepType::IMAGE_SCENE:
-        drawImageScene();
-        break;
-    case AfterBossStepType::DIALOGUE:
-        drawDialogueScene();
-        break;
-    case AfterBossStepType::CREDITS:
-        drawCredits();
-        break;
-    default:
-        break;
+    // 如果不是淡入淡出状态，正常绘制场景
+    if (!isFading) {
+        switch (step.type) {
+        case AfterBossStepType::TEXT_ONLY:
+            drawTextOnlyScene();
+            break;
+        case AfterBossStepType::IMAGE_SCENE:
+            drawImageScene();
+            break;
+        case AfterBossStepType::DIALOGUE:
+            drawDialogueScene();
+            break;
+        case AfterBossStepType::CREDITS:
+            drawCredits();
+            break;
+        default:
+            break;
+        }
+
+        // 如果不是制作人员名单，绘制操作提示
+        if (!showCredits && step.type != AfterBossStepType::CREDITS) {
+            drawTextWithShadow(600, 550, "按空格键继续", RGB(200, 200, 200), RGB(0, 0, 0), 20);
+            drawTextWithShadow(50, 550, "按ESC跳过", RGB(200, 200, 200), RGB(0, 0, 0), 20);
+        }
     }
 
-    // 如果不是制作人员名单，绘制操作提示
-    if (!showCredits && step.type != AfterBossStepType::CREDITS) {
-        drawTextWithShadow(600, 550, "按空格键继续", RGB(200, 200, 200), RGB(0, 0, 0), 20);
-        drawTextWithShadow(50, 550, "按ESC跳过", RGB(200, 200, 200), RGB(0, 0, 0), 20);
+    // 绘制淡入淡出效果（在最上层）
+    if (isFading) {
+        drawFadeEffect();
     }
 }
 
@@ -445,14 +498,14 @@ void AfterBossScene::drawTextOnlyScene() {
         cleardevice();
 
         // 绘制居中文字
-        string displayingText = currentText.substr(0, textCharIndex);
+        std::string displayingText = currentText.substr(0, textCharIndex);
 
         // 分割文本行
-        vector<string> lines;
-        istringstream iss(displayingText);
-        string line;
+        std::vector<std::string> lines;
+        std::istringstream iss(displayingText);
+        std::string line;
 
-        while (getline(iss, line, '\n')) {
+        while (std::getline(iss, line, '\n')) {
             lines.push_back(line);
         }
 
@@ -481,7 +534,7 @@ void AfterBossScene::drawTextOnlyScene() {
         }
 
         // 绘制文本内容
-        string displayingText = currentText.substr(0, textCharIndex);
+        std::string displayingText = currentText.substr(0, textCharIndex);
         drawTextWithWrap(100, 150, 600, displayingText,
             RGB(230, 230, 255), 28, L"宋体");
 
@@ -499,6 +552,7 @@ void AfterBossScene::drawImageScene() {
         putimage(0, 0, &bgImg);
     }
     else {
+        // 如果没有背景图片，使用颜色背景
         setbkcolor(RGB(50, 100, 150));
         cleardevice();
     }
@@ -511,7 +565,10 @@ void AfterBossScene::drawImageScene() {
         solidrectangle(50, 450, 750, 550);
 
         // 绘制文字
-        string displayingText = currentText.substr(0, textCharIndex);
+        std::string displayingText = currentText.substr(0, textCharIndex);
+        if (displayingText.empty() && !currentText.empty()) {
+            displayingText = currentText;
+        }
         drawTextWithWrap(60, 460, 680, displayingText,
             RGB(255, 255, 200), 20, L"宋体");
     }
@@ -519,22 +576,38 @@ void AfterBossScene::drawImageScene() {
 
 // 绘制对话场景
 void AfterBossScene::drawDialogueScene() {
-    // 清屏设置背景色
-    setbkcolor(BLACK);
-    cleardevice();
+    const AfterBossStep& step = steps[currentStep];
 
     // 绘制背景
     if (bgLoaded) {
         putimage(0, 0, &bgImg);
     }
     else {
+        // 默认对话背景
         setbkcolor(RGB(100, 80, 60));
         cleardevice();
+
+        // 绘制简单的大厅背景
+        setfillcolor(RGB(139, 119, 101)); // 地板
+        solidrectangle(0, 300, 800, 600);
+
+        setfillcolor(RGB(188, 170, 164)); // 墙壁
+        solidrectangle(0, 0, 800, 300);
+
+        // 绘制窗户
+        setfillcolor(RGB(135, 206, 250)); // 天空蓝
+        solidrectangle(200, 100, 350, 250);
+        solidrectangle(450, 100, 600, 250);
+
+        setlinecolor(RGB(101, 67, 33)); // 窗框
+        setlinestyle(PS_SOLID, 3);
+        rectangle(200, 100, 350, 250);
+        rectangle(450, 100, 600, 250);
+        line(275, 100, 275, 250);
+        line(525, 100, 525, 250);
     }
 
     // 绘制角色立绘
-    const AfterBossStep& step = steps[currentStep];
-
     // 左侧立绘（艾登）
     if (leftLoaded) {
         int leftX = 50;
@@ -572,24 +645,27 @@ void AfterBossScene::drawDialogueScene() {
     solidrectangle(dialogX, dialogY, dialogX + dialogWidth, dialogY + dialogHeight);
 
     // 对话框边框（金色装饰）
-    setlinecolor(RGB(218, 165, 32));  // 金色
+    setlinecolor(RGB(218, 165, 32));
     setlinestyle(PS_SOLID, 4);
     rectangle(dialogX, dialogY, dialogX + dialogWidth, dialogY + dialogHeight);
 
     // 内边框
-    setlinecolor(RGB(139, 69, 19));  // 棕色
+    setlinecolor(RGB(139, 69, 19));
     setlinestyle(PS_SOLID, 2);
     rectangle(dialogX + 5, dialogY + 5, dialogX + dialogWidth - 5, dialogY + dialogHeight - 5);
 
     // 绘制说话者名字（带背景）
-    setfillcolor(RGB(139, 69, 19, 220));  // 半透明棕色
+    setfillcolor(RGB(139, 69, 19, 220));
     solidrectangle(dialogX + 20, dialogY + 15, dialogX + 200, dialogY + 55);
 
     drawTextWithShadow(dialogX + 30, dialogY + 20, step.dialogue.speaker,
         RGB(255, 255, 255), RGB(100, 50, 0), 28, L"楷体");
 
     // 绘制对话内容
-    string displayingText = currentText.substr(0, textCharIndex);
+    std::string displayingText = currentText.substr(0, textCharIndex);
+    if (displayingText.empty() && !currentText.empty()) {
+        displayingText = currentText;
+    }
     drawTextWithWrap(dialogX + 30, dialogY + 70, dialogWidth - 60,
         displayingText, RGB(255, 255, 255), 24, L"宋体");
 }
@@ -674,24 +750,6 @@ void AfterBossScene::drawCenteredText(int y, const std::string& text,
 
 // 绘制淡入淡出效果
 void AfterBossScene::drawFadeEffect() {
-    // 先绘制场景内容
-    if (currentStep < steps.size()) {
-        const AfterBossStep& step = steps[currentStep];
-        switch (step.type) {
-        case AfterBossStepType::TEXT_ONLY:
-            drawTextOnlyScene();
-            break;
-        case AfterBossStepType::IMAGE_SCENE:
-            drawImageScene();
-            break;
-        case AfterBossStepType::DIALOGUE:
-            drawDialogueScene();
-            break;
-        default:
-            break;
-        }
-    }
-
     // 在顶层绘制黑色覆盖层
     setfillcolor(RGB(0, 0, 0, alphaValue));
     solidrectangle(0, 0, 800, 600);
@@ -802,6 +860,11 @@ void AfterBossScene::drawTextWithWrap(int x, int y, int width, const std::string
     std::string paragraph;
 
     while (std::getline(iss, paragraph, '\n')) {
+        if (paragraph.empty()) {
+            currentY += lineHeight;
+            continue;
+        }
+
         std::string word;
         std::istringstream words(paragraph);
         currentLine.clear();
@@ -812,8 +875,10 @@ void AfterBossScene::drawTextWithWrap(int x, int y, int width, const std::string
 
             if (textWidth > width) {
                 // 输出当前行
-                outtextxy(x, currentY, currentLine.c_str());
-                currentY += lineHeight;
+                if (!currentLine.empty()) {
+                    outtextxy(x, currentY, currentLine.c_str());
+                    currentY += lineHeight;
+                }
                 currentLine = word;
             }
             else {
@@ -847,3 +912,9 @@ void AfterBossScene::drawTextWithShadow(int x, int y, const std::string& text,
     settextcolor(color);
     outtextxy(x, y, text.c_str());
 }
+
+// 字符串转换函数（头文件声明但不需要实现，因为loadimage直接使用std::string）
+// std::wstring AfterBossScene::stringToWstring(const std::string& str) {
+//     // 不需要实现，因为loadimage可以直接使用std::string::c_str()
+//     return std::wstring();
+// }
