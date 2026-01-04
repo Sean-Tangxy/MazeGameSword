@@ -73,6 +73,17 @@ public:
         position = startPos;
     }
 
+    // 重置玩家所有状态
+    void reset() {
+        position = Position(1, 1);
+        health = maxHealth;
+        score = 0;
+        hasKey = false;
+        for (int i = 0; i < 3; i++) {
+            swordFragments[i] = false;
+        }
+    }
+
     void setSprite(IMAGE* img) { sprite = img; }
 
     void move(int dx, int dy) {
@@ -247,6 +258,29 @@ GameScene::~GameScene() {
     exit();
 }
 
+// 重置整个游戏
+void GameScene::resetGame() {
+    // 保存当前场景管理器
+    SceneManager* manager = sceneManager;
+
+    // 清理当前场景
+    exit();
+
+    // 重置所有状态
+    stage = 1;
+    playerData = PlayerData();  // 完全重置玩家数据
+
+    // 重新初始化
+    enter();
+
+    // 恢复场景管理器
+    sceneManager = manager;
+    isGameOver = false;
+    isGameWon = false;
+
+    showMessage("游戏重新开始", 120, RGB(100, 255, 100));
+}
+
 // 清理游戏对象
 void GameScene::clearGameObjects() {
     // 清理敌人
@@ -289,6 +323,11 @@ void GameScene::resetStageState() {
     isGameOver = false;
     isGameWon = false;
     messages.clear();
+
+    // 重置玩家位置（如果需要）
+    if (player) {
+        player->resetPosition(Position(1, 1));
+    }
 }
 
 void GameScene::enter() {
@@ -508,16 +547,20 @@ void GameScene::render() {
 
         settextcolor(WHITE);
         settextstyle(24, 0, _T("宋体"));
-        outtextxy(320, 320, _T("按R重新开始"));
-        outtextxy(320, 360, _T("按ESC返回菜单"));
 
+        // 显示最终得分
+        char scoreText[50];
+        sprintf_s(scoreText, "最终得分: %d", score);
+        outtextxy(320, 320, scoreText);
+
+        outtextxy(320, 360, _T("按R重新开始"));
+        outtextxy(320, 400, _T("按ESC返回菜单"));
+
+        // R键重新开始
         static bool rProcessed = false;
         if (GetAsyncKeyState('R') & 0x8000) {
             if (!rProcessed) {
-                // 重置玩家数据
-                playerData = PlayerData();
-                stage = 1;
-                sceneManager->switchTo(SceneType::GAME);
+                resetGame();
                 rProcessed = true;
             }
         }
@@ -525,9 +568,13 @@ void GameScene::render() {
             rProcessed = false;
         }
 
+        // ESC键返回菜单
         static bool escProcessed = false;
         if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
             if (!escProcessed) {
+                // 先重置游戏状态
+                resetGame();
+                // 然后再返回菜单
                 sceneManager->switchTo(SceneType::MENU);
                 escProcessed = true;
             }
@@ -826,25 +873,25 @@ void GameScene::generateThirdLevelMap() {
     }
 
     // 内墙（创建简单的迷宫结构）
-    for (int i = 2; i <= 13; i++) {	map[i][2] = TileType::WALL; }
-    map[2][3] = TileType::WALL; 
+    for (int i = 2; i <= 13; i++) { map[i][2] = TileType::WALL; }
+    map[2][3] = TileType::WALL;
     map[2][4] = TileType::WALL;  map[10][4] = TileType::WALL; map[11][4] = TileType::WALL; map[12][4] = TileType::WALL;
     map[2][5] = TileType::WALL;  map[4][5] = TileType::WALL; map[5][5] = TileType::WALL; map[6][5] = TileType::WALL; map[10][5] = TileType::WALL; map[12][5] = TileType::WALL;
-	map[4][6] = TileType::WALL;  map[6][6] = TileType::WALL; map[10][6] = TileType::WALL; map[12][6] = TileType::WALL;
-    map[2][7] = TileType::WALL;  map[3][7] = TileType::WALL;  map[4][7] = TileType::WALL; map[6][7] = TileType::WALL; 
+    map[4][6] = TileType::WALL;  map[6][6] = TileType::WALL; map[10][6] = TileType::WALL; map[12][6] = TileType::WALL;
+    map[2][7] = TileType::WALL;  map[3][7] = TileType::WALL;  map[4][7] = TileType::WALL; map[6][7] = TileType::WALL;
     map[7][7] = TileType::WALL;  map[8][7] = TileType::WALL;  map[9][7] = TileType::WALL;  map[10][7] = TileType::WALL; map[12][7] = TileType::WALL;
-	map[2][8] = TileType::WALL;  map[12][8] = TileType::WALL;
-	map[2][9] = TileType::WALL;  map[4][9] = TileType::WALL; map[5][9] = TileType::WALL; map[6][9] = TileType::WALL; map[8][9] = TileType::WALL; 
+    map[2][8] = TileType::WALL;  map[12][8] = TileType::WALL;
+    map[2][9] = TileType::WALL;  map[4][9] = TileType::WALL; map[5][9] = TileType::WALL; map[6][9] = TileType::WALL; map[8][9] = TileType::WALL;
     map[9][9] = TileType::WALL;  map[10][9] = TileType::WALL; map[11][9] = TileType::WALL; map[12][9] = TileType::WALL;
     map[2][10] = TileType::WALL; map[4][10] = TileType::WALL; map[8][10] = TileType::WALL;
-	map[2][11] = TileType::WALL; map[4][11] = TileType::WALL; map[6][11] = TileType::WALL; map[8][11] = TileType::WALL;
-    map[1][12] = TileType::WALL; map[2][12] = TileType::WALL; map[4][12] = TileType::WALL; map[6][12] = TileType::WALL; map[8][12] = TileType::WALL; 
+    map[2][11] = TileType::WALL; map[4][11] = TileType::WALL; map[6][11] = TileType::WALL; map[8][11] = TileType::WALL;
+    map[1][12] = TileType::WALL; map[2][12] = TileType::WALL; map[4][12] = TileType::WALL; map[6][12] = TileType::WALL; map[8][12] = TileType::WALL;
     map[10][12] = TileType::WALL; map[11][12] = TileType::WALL; map[12][12] = TileType::WALL; map[13][12] = TileType::WALL;
     map[2][13] = TileType::WALL; map[4][13] = TileType::WALL; map[6][13] = TileType::WALL; map[8][13] = TileType::WALL; map[10][13] = TileType::WALL;
     map[2][14] = TileType::WALL; map[4][14] = TileType::WALL; map[6][14] = TileType::WALL; map[8][14] = TileType::WALL; map[10][14] = TileType::WALL;
-	map[2][15] = TileType::WALL; map[4][15] = TileType::WALL; map[6][15] = TileType::WALL; map[10][15] = TileType::WALL;
+    map[2][15] = TileType::WALL; map[4][15] = TileType::WALL; map[6][15] = TileType::WALL; map[10][15] = TileType::WALL;
     map[2][16] = TileType::WALL; map[4][16] = TileType::WALL; map[6][16] = TileType::WALL; map[10][16] = TileType::WALL;
-	map[2][17] = TileType::WALL; for (int i = 4; i <= 11; i++) { map[i][17] = TileType::WALL; }
+    map[2][17] = TileType::WALL; for (int i = 4; i <= 11; i++) { map[i][17] = TileType::WALL; }
 
 
     // 设置出生点
@@ -1321,8 +1368,8 @@ void GameScene::drawInteractionPrompt(int npcScreenX, int npcScreenY) {
 
 Position GameScene::findValidNPCPosition() {
     if (stage == 1) return Position(8, 6);
-	if (stage == 2) return Position(8, 6);
-	if (stage == 3) return Position(6, 5);
+    if (stage == 2) return Position(8, 6);
+    if (stage == 3) return Position(6, 5);
 
     // 预定义几个可能的位置
     std::vector<Position> possiblePositions = {

@@ -133,6 +133,9 @@ public:
     void setSceneManager(SceneManager* manager) override { sceneManager = manager; }
     void initNextStage();
 
+    // 重置整个游戏
+    void resetGame();
+
     // 工具函数，供 Enemy 类使用
     bool isPositionWalkable(const Position& pos) const;
 
